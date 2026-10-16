@@ -160,7 +160,15 @@ export default function Page(){
      }
    }catch{}
  }
- function open(item){resumeRef.current=(item&&item.watchedAt)?item:null;setSelected({...item,media_type:category(item)});window.scrollTo({top:0,behavior:'smooth'});}
+ function open(item){
+   if(!item?.id)return;
+   // Opening a title never launches playback. Only Watch buttons call play().
+   if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
+   setEpisode(null);
+   resumeRef.current=item.watchedAt?item:null;
+   setSelected({...item,media_type:category(item)});
+   window.scrollTo({top:0,behavior:'smooth'});
+ }
  function resumeWatching(item){
    if(!item||!item.id)return;
    const type=category(item);
@@ -195,7 +203,7 @@ export default function Page(){
   {poster(item.poster_path)?<img loading="lazy" src={poster(item.poster_path)} alt="" />:<div className="no-poster">{title(item)}</div>}
   <div className="tile-overlay"><strong>{title(item)}</strong><span>★ {item.vote_average?.toFixed?.(1)||'–'} · {(item.release_date||item.first_air_date||'').slice(0,4)}</span></div>
  </button>;}
- function shelf(label,items,id='',sectionKey=''){if(!items?.length)return null;const isContinue=sectionKey==='continue';return <section id={id} className="shelf"><h2>{isContinue?label:<button className="shelf-heading" onClick={()=>nav('section:'+(sectionKey||id.replace('row-','')))}>{label} <span aria-hidden="true">›</span></button>}</h2><div className="strip">{items.filter(i=>i&&i.poster_path).slice(0,18).map((item,i)=>isContinue?<button className="tile resume-tile" key={'resume-'+keyOf(item)} onClick={()=>open(item)} aria-label={(item.title||item.name||'')+' '+(category(item)==='tv'?'S'+(item.season||1)+' E'+(item.episode||1):t.watch)}><img loading="lazy" src={poster(item.poster_path)} alt=""/><span className="resume-label">{category(item)==='tv'?('S'+(item.season||1)+' · E'+(item.episode||1)):(rtl?'متابعة الفيلم':'Continue movie')} <Play size={13} fill="currentColor"/></span></button>:tile(item,i))}</div></section>;}
+ function shelf(label,items,id='',sectionKey=''){if(!items?.length)return null;const isContinue=sectionKey==='continue';return <section id={id} className="shelf"><h2>{isContinue?label:<button className="shelf-heading" onClick={()=>nav('section:'+(sectionKey||id.replace('row-','')))}>{label} <span aria-hidden="true">›</span></button>}</h2><div className="strip">{items.filter(i=>i&&i.poster_path).slice(0,18).map((item,i)=>isContinue?<button className="tile resume-tile" key={'resume-'+keyOf(item)} onClick={()=>{setEpisode(null);open(item);}} aria-label={(item.title||item.name||'')+' — '+t.details}><img loading="lazy" src={poster(item.poster_path)} alt=""/><span className="resume-label">{category(item)==='tv'?('S'+(item.season||1)+' · E'+(item.episode||1)):(rtl?'متابعة الفيلم':'Continue movie')} <ArrowRight size={15}/></span></button>:tile(item,i))}</div></section>;}
  const pinned=[...(siteSettings.homepage?.featured_movie_ids||[]),...(siteSettings.homepage?.featured_tv_ids||[])];
  const hero=(rows.trending||[]).find(x=>pinned.includes(x.id)&&x.backdrop_path)||(rows.trending||[]).find(x=>x.backdrop_path && (x.media_type==='movie'||x.media_type==='tv'));
  return <main dir={rtl?'rtl':'ltr'}>
