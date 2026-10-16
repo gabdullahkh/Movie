@@ -50,3 +50,6 @@ html:fullscreen .player-box>p{margin:4px 12px 10px}
 .player-tools .next-episode{display:inline-flex;gap:8px;align-items:center;border:1px solid #5d5d65;border-radius:6px;color:white;background:#24262e;padding:8px 13px;font-size:13px}
 .player-tools .next-episode:hover{background:#383a43}
 @media(max-width:540px){.player-tools .next-episode{font-size:11px;padding:7px}}
+
+.search-type-label{position:absolute;top:9px;left:9px;z-index:2;padding:5px 9px;background:rgba(10,12,18,.92);border:1px solid rgba(255,255,255,.25);border-radius:5px;color:white;font-size:11px;font-weight:800;letter-spacing:.25px;pointer-events:none}
+html[dir="rtl"] .search-type-label{left:auto;right:9px}
