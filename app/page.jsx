@@ -24,8 +24,7 @@ export default function Page(){
  const api=useCallback(async(path,params={})=>{const u=new URLSearchParams({path,language:language==='ar'?'ar-SA':'en-US',...params});const r=await fetch('/api/tmdb?'+u);const json=await r.json();if(!r.ok)throw Error(json.error||'Unable to fetch');return json;},[language]);
  useEffect(()=>{setWatchlist(readStorage('movie.watchlist',[]));setHistory(readStorage('movie.history',[]));setLanguage(readStorage('movie.language','en'));fetch('/api/settings').then(r=>r.json()).then(d=>setSiteSettings(d.settings||{})).catch(()=>{});},[]);
  useEffect(()=>{localStorage.setItem('movie.language',JSON.stringify(language));document.documentElement.lang=language;document.documentElement.dir=rtl?'rtl':'ltr';},[language,rtl]);
- useEffect(()=>{if(authLoaded&&!session)localStorage.setItem('movie.watchlist',JSON.stringify(watchlist));},[watchlist,session,authLoaded]);
- useEffect(()=>{if(authLoaded&&!session)localStorage.setItem('movie.history',JSON.stringify(history));},[history,session,authLoaded]);
+ // Anonymous lists are saved only when the viewer changes them, not during account transitions.
  useEffect(()=>{
    let alive=true;
    supabase.auth.getSession().then(({data})=>{if(alive){setSession(data.session);setAuthLoaded(true);}});
@@ -84,6 +83,7 @@ export default function Page(){
  function toggleList(item){
    const k=keyOf(item),exists=watchlist.some(x=>keyOf(x)===k);
    setWatchlist(old=>exists?old.filter(x=>keyOf(x)!==k):[{...item,media_type:category(item)},...old]);
+   if(!session?.user?.id)localStorage.setItem('movie.watchlist',JSON.stringify(exists?watchlist.filter(x=>keyOf(x)!==k):[{...item,media_type:category(item)},...watchlist]));
    if(session?.user?.id){
      if(exists) supabase.from('user_library').delete().eq('user_id',session.user.id).eq('kind','watchlist').eq('item_key',k).then(()=>{});
      else supabase.from('user_library').upsert({user_id:session.user.id,kind:'watchlist',item_key:k,payload:{...item,media_type:category(item)}},{onConflict:'user_id,item_key,kind'}).then(()=>{});
@@ -92,6 +92,7 @@ export default function Page(){
  function play(item,s=1,e=1){
    const type=category(item),entry={...item,media_type:type,season:s,episode:e,watchedAt:Date.now()};
    setHistory(old=>[entry,...old.filter(x=>keyOf(x)!==keyOf(entry))].slice(0,25));
+   if(!session?.user?.id)localStorage.setItem('movie.history',JSON.stringify([entry,...history.filter(x=>keyOf(x)!==keyOf(entry))].slice(0,25)));
    if(session?.user?.id) supabase.from('user_library').upsert({user_id:session.user.id,kind:'history',item_key:keyOf(entry),payload:entry},{onConflict:'user_id,item_key,kind'}).then(()=>{});
    setEpisode({type,id:item.id,season:s,number:e});
  }
