@@ -12,7 +12,7 @@ const labels={
  ar:{home:'الرئيسية',movies:'أفلام',tv:'مسلسلات',myList:'قائمتي',search:'ابحث عن أفلام ومسلسلات',trending:'الرائج هذا الأسبوع',popularMovies:'أفلام شائعة',popularShows:'مسلسلات شائعة',topMovies:'أعلى الأفلام تقييماً',topShows:'أعلى المسلسلات تقييماً',netflix:'الأحدث على نتفليكس',prime:'الأحدث على برايم فيديو',disney:'الأحدث على ديزني+',account:'الحساب',onAir:'يعرض الآن',nowPlaying:'في السينما',watch:'شاهد الآن',details:'المزيد من التفاصيل',add:'إضافة إلى قائمتي',remove:'إزالة من قائمتي',seasons:'المواسم',episodes:'الحلقات',episode:'الحلقة',continue:'متابعة المشاهدة',back:'رجوع',allGenres:'كل الأنواع',noResults:'لا توجد نتائج.',emptyList:'قائمتك فارغة. أضف أفلاماً أو مسلسلات لحفظها هنا.',loading:'جاري التحميل...',rating:'التقييم',overview:'القصة',noOverview:'لا يوجد وصف متوفر.',unavailable:'تعذر تحميل البيانات. تحقق من إعدادات TMDB.',playerNotice:'المشاهدة عبر مشغل خارجي. الإعلانات والتحويلات خارج تحكمنا.',tmdb:'هذا المنتج يستخدم واجهة TMDB لكنه غير معتمد أو مدعوم من TMDB.',close:'إغلاق',searchResults:'نتائج البحث',browse:'تصفح',selectEpisode:'اختر الحلقة',more:'عرض المزيد',backHome:'العودة للرئيسية'}
 };
 function readStorage(key,fallback){try{const d=localStorage.getItem(key);if(!d)return fallback;const parsed=JSON.parse(d);return Array.isArray(fallback)?(Array.isArray(parsed)?parsed:fallback):parsed;}catch{return fallback;}}
-const keyOf=(item)=>category(item)+':'+item.id;
+const keyOf=(item)=>item&&typeof item==='object'?category(item)+':'+item.id:'invalid';
 export default function Page(){
  const [language,setLanguage]=useState('en');
  const t=labels[language],rtl=language==='ar';
@@ -25,7 +25,7 @@ export default function Page(){
  const scrollAnchor=useRef(null);
  const [appIssue,setAppIssue]=useState('');
  const api=useCallback(async(path,params={})=>{const u=new URLSearchParams({path,language:language==='ar'?'ar-SA':'en-US',...params});const r=await fetch('/api/tmdb?'+u);const json=await r.json();if(!r.ok)throw Error(json.error||'Unable to fetch');return json;},[language]);
- useEffect(()=>{setWatchlist(readStorage('movie.watchlist',[]));setHistory(readStorage('movie.history',[]));setLanguage(readStorage('movie.language','en'));fetch('/api/settings').then(r=>r.json()).then(d=>setSiteSettings(d.settings||{})).catch(()=>{});},[]);
+ useEffect(()=>{setWatchlist(readStorage('movie.watchlist',[]));setHistory(readStorage('movie.history',[]));setLanguage(readStorage('movie.language','en')==='ar'?'ar':'en');fetch('/api/settings').then(r=>r.json()).then(d=>setSiteSettings(d.settings||{})).catch(()=>{});},[]);
  useEffect(()=>{localStorage.setItem('movie.language',JSON.stringify(language));document.documentElement.lang=language;document.documentElement.dir=rtl?'rtl':'ltr';},[language,rtl]);
  // Anonymous lists are saved only when the viewer changes them, not during account transitions.
  useEffect(()=>{
