@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
-export default function AccountPanel({ session, onClose, language, profiles = [], activeProfile, onSelectProfile, onCreateProfile }) {
+export default function AccountPanel({ session, onClose, language, profiles = [], activeProfile, onSelectProfile, onCreateProfile, onRenameProfile }) {
     const ar = language === 'ar';
     const [mode, setMode] = useState('login');
     const [email, setEmail] = useState('');
@@ -9,6 +9,8 @@ export default function AccountPanel({ session, onClose, language, profiles = []
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState('');
     const [profileName, setProfileName] = useState('');
+    const [editingId, setEditingId] = useState(null);
+    const [editingName, setEditingName] = useState('');
     async function submit(e) {
         e.preventDefault();
         setBusy(true);
@@ -32,12 +34,24 @@ export default function AccountPanel({ session, onClose, language, profiles = []
                 <p className="account-email">{session.user.email}</p>
                 <p>{ar ? 'يمكن مزامنة قائمتك وسجل المشاهدة عبر الأجهزة.' : 'Your list and viewing history can sync across devices.'}</p>
                 <h3>{ar ? 'ملفات العائلة' : 'Family profiles'}</h3>
-                <div className="profile-list">{profiles.map(profile => <button type="button" key={profile.id} onClick={() => { onSelectProfile(profile.id); onClose(); }} className={'profile-choice '+(activeProfile?.id===profile.id?'chosen':'')}>{profile.name} {activeProfile?.id===profile.id?'✓':''}</button>)}</div>
+                <div className="profile-list">{profiles.map(profile => <div className="profile-entry" key={profile.id}>
+                    {editingId===profile.id ?
+                        <form className="profile-rename" onSubmit={async e=>{e.preventDefault();const name=editingName.trim();if(!name)return;setBusy(true);setMessage('');try{await onRenameProfile(profile.id,name);setEditingId(null);setEditingName('');}catch(err){setMessage(err.message||'Unable to rename profile');}finally{setBusy(false);}}}>
+                            <input aria-label={ar?'اسم الملف':'Profile name'} maxLength={30} required value={editingName} onChange={e=>setEditingName(e.target.value)}/>
+                            <button type="submit" disabled={busy}>{ar?'حفظ':'Save'}</button>
+                            <button type="button" onClick={()=>{setEditingId(null);setMessage('');}}>{ar?'إلغاء':'Cancel'}</button>
+                        </form>
+                    : <>
+                        <button type="button" onClick={() => { onSelectProfile(profile.id); onClose(); }} className={'profile-choice '+(activeProfile?.id===profile.id?'chosen':'')}>{profile.name} {activeProfile?.id===profile.id?'✓':''}</button>
+                        <button type="button" className="profile-edit" aria-label={(ar?'تعديل اسم ':'Edit name of ')+profile.name} onClick={()=>{setEditingId(profile.id);setEditingName(profile.name);setMessage('');}}>{ar?'تعديل':'Edit'}</button>
+                      </>}
+                    </div>)}</div>
                 <form className="profile-create" onSubmit={async e => { e.preventDefault(); if(!profileName.trim())return;setBusy(true);setMessage('');try{await onCreateProfile(profileName.trim());setProfileName('');}catch(err){setMessage(err.message||'Could not create profile');}finally{setBusy(false);}}}>
                     <input maxLength={30} placeholder={ar?'اسم الملف الجديد':'New profile name'} value={profileName} onChange={e=>setProfileName(e.target.value)} required/>
                     <button disabled={busy||profiles.length>=8} type="submit">{ar?'إضافة':'Add profile'}</button>
                 </form>
                 <p className="account-message">{ar?'حتى 8 ملفات لكل حساب':'Up to 8 profiles per account'}</p>
+                {message&&<p className="account-message" role="status">{message}</p>}
                 <button className="primary account-submit" onClick={async () => { await supabase.auth.signOut(); onClose(); }}>{ar ? 'تسجيل خروج' : 'Sign out'}</button>
             </> : <>
                 <div className="account-tabs"><button className={mode === 'login' ? 'active' : ''} onClick={() => { setMode('login'); setMessage(''); }}>{ar ? 'دخول' : 'Sign in'}</button><button className={mode === 'register' ? 'active' : ''} onClick={() => { setMode('register'); setMessage(''); }}>{ar ? 'حساب جديد' : 'Create account'}</button></div>
