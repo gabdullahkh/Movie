@@ -9,19 +9,33 @@ export default function SourceLab(){
  const [results,setResults]=useState([]);
  const [message,setMessage]=useState('');
  const [busy,setBusy]=useState(false);
- const [playing,setPlaying]=useState('');
+ const [playing,setPlaying]=useState(null);
+ const [playError,setPlayError]=useState('');
  const playerRef=useRef(null);
  useEffect(()=>{
-  if(!playing||!playing.includes('.m3u8')||!playerRef.current)return;
   const video=playerRef.current;
-  if(video.canPlayType('application/vnd.apple.mpegurl')){video.src=playing;return;}
+  if(!playing||!video)return;
   let hls,live=true;
+  setPlayError('');
+  const url=playing.playbackUrl || playing.url;
+  const isHls=/HLS|m3u8/i.test(playing.title||'') || /\.m3u8(?:[?#]|$)/i.test(playing.url||'');
+  const playbackError=(message)=>{if(live)setPlayError(message);};
+  if(!isHls){video.src=url;video.load();video.play().catch(()=>{});return;}
+  if(video.canPlayType('application/vnd.apple.mpegurl')){video.src=url;video.load();video.play().catch(()=>{});return;}
   import('hls.js').then(mod=>{
    if(!live)return;
    const Hls=mod.default;
-   if(!Hls.isSupported())return;
-   hls=new Hls();hls.loadSource(playing);hls.attachMedia(video);
-  }).catch(()=>{});
+   if(!Hls.isSupported()){playbackError('HLS is not supported in this browser.');return;}
+   hls=new Hls({enableWorker:true,maxBufferLength:30});
+   hls.on(Hls.Events.ERROR,(_event,data)=>{
+    if(data.fatal){
+     playbackError('Playback failed: '+(data.response?.code ? 'HTTP '+data.response.code : data.details||data.type));
+     if(data.type===Hls.ErrorTypes.MEDIA_ERROR)hls.recoverMediaError();else hls.destroy();
+    }
+   });
+   hls.on(Hls.Events.MANIFEST_PARSED,()=>video.play().catch(()=>{}));
+   hls.loadSource(url);hls.attachMedia(video);
+  }).catch(err=>playbackError('Unable to initialize HLS player: '+err.message));
   return()=>{live=false;hls?.destroy();};
  },[playing]);
  const [health,setHealth]=useState('');
@@ -36,7 +50,7 @@ export default function SourceLab(){
  }
  async function check(){setHealth('Checking...');try{const data=await request('health',{});setHealth('API connected: '+JSON.stringify(data).slice(0,180));}catch(e){setHealth(e.message);}}
  async function search(e){
-  e.preventDefault();setBusy(true);setMessage('');setResults([]);setPlaying('');
+  e.preventDefault();setBusy(true);setMessage('');setResults([]);setPlaying(null);
   try{
    const data=await request('streams',settings);
    const streams=Array.isArray(data)?data:Array.isArray(data.streams)?data.streams:Array.isArray(data.results)?data.results:Array.isArray(data.data)?data.data:[];
@@ -63,15 +77,15 @@ export default function SourceLab(){
      <label style={label}>Provider<select style={field} value={settings.provider} onChange={e=>edit('provider',e.target.value)}>{choices.map(x=><option key={x} value={x}>{x==='all'?'All enabled providers':x}</option>)}</select></label>
      <label style={label}>Minimum quality<select style={field} value={settings.quality} onChange={e=>edit('quality',e.target.value)}>{['all','480','720','1080','1440','2160'].map(x=><option key={x} value={x}>{x==='all'?'Any quality':x+'p'}</option>)}</select></label>
     </div>
-    <div style={{display:'flex',gap:10,marginTop:20,flexWrap:'wrap'}}><button disabled={busy} style={{background:'#e50914',color:'#fff',border:0,borderRadius:8,padding:'13px 20px',fontWeight:700,cursor:'pointer'}}>{busy?'Searching...':'Find streams'}</button><button type="button" style={{...field,width:'auto',cursor:'pointer'}} onClick={()=>{setSettings(defaults);localStorage.removeItem('movie.sourceLab.settings');setResults([]);setPlaying('');setMessage('Settings reset.');}}>Reset settings</button></div>
+    <div style={{display:'flex',gap:10,marginTop:20,flexWrap:'wrap'}}><button disabled={busy} style={{background:'#e50914',color:'#fff',border:0,borderRadius:8,padding:'13px 20px',fontWeight:700,cursor:'pointer'}}>{busy?'Searching...':'Find streams'}</button><button type="button" style={{...field,width:'auto',cursor:'pointer'}} onClick={()=>{setSettings(defaults);localStorage.removeItem('movie.sourceLab.settings');setResults([]);setPlaying(null);setMessage('Settings reset.');}}>Reset settings</button></div>
    </form>
   </section>
   {message&&<p role="status" style={{marginTop:24,color:'#d5d7df'}}>{message}</p>}
-  {playing&&<section style={{maxWidth:1050,marginTop:20}}><div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}><h2>Preview</h2><button onClick={()=>setPlaying('')} style={{...field,width:'auto'}}>Close player</button></div><video ref={playerRef} key={playing} src={playing.includes('.m3u8')?undefined:playing} controls playsInline autoPlay style={{width:'100%',aspectRatio:'16/9',background:'black',borderRadius:10}}/></section>}
+  {playing&&<section style={{maxWidth:1050,marginTop:20}}><div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}><h2>Preview</h2><button onClick={()=>setPlaying('')} style={{...field,width:'auto'}}>Close player</button></div><video ref={playerRef} key={playing.playbackUrl||playing.url} controls playsInline autoPlay onError={()=>setPlayError('The video server rejected playback or returned an unsupported video format.')} style={{width:'100%',aspectRatio:'16/9',background:'black',borderRadius:10}}/>{playError&&<p role="alert" style={{color:'#ff9ca5'}}>{playError}</p>}</section>}
   <section style={{maxWidth:1050,display:'grid',gap:12,marginTop:22}}>
    {results.map((x,i)=><article key={i} style={{background:'#171920',border:'1px solid #353743',borderRadius:10,padding:17,display:'flex',gap:15,alignItems:'center',justifyContent:'space-between',flexWrap:'wrap'}}>
     <div><strong>{x.title||x.name||'Video source '+(i+1)}</strong><p style={{margin:'8px 0 0',color:'#adb0bc',fontSize:13}}>Provider: {x.provider||'Unknown'} · Quality: {x.quality||'Unknown'} · Subtitles: {Array.isArray(x.subtitles)?x.subtitles.map(s=>s.lang||s.language).filter(Boolean).join(', ')||'Not listed':'Not listed'}</p></div>
-    <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{typeof x.url==='string'&&/^https?:\/\//.test(x.url)&&<><button style={{...field,width:'auto'}} onClick={()=>setPlaying(x.url)}>Preview</button><a href={x.url} target="_blank" rel="noreferrer" style={{color:'white',background:'#31333d',borderRadius:8,padding:12,textDecoration:'none'}}>Open source ↗</a></>}</div>
+    <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{typeof x.url==='string'&&/^https?:\/\//.test(x.url)&&<><button style={{...field,width:'auto'}} onClick={()=>{setPlayError('');setPlaying(x);}}>Preview</button><a href={x.url} target="_blank" rel="noreferrer" style={{color:'white',background:'#31333d',borderRadius:8,padding:12,textDecoration:'none'}}>Open source ↗</a></>}</div>
    </article>)}
   </section>
   <p style={{maxWidth:1050,color:'#858995',fontSize:12,marginTop:26}}>This page keeps settings in this browser only. External URLs may need special headers or HLS support and may not play in the browser.</p>
