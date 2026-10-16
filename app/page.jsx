@@ -34,6 +34,7 @@ export default function Page(){
  const [session,setSession]=useState(null),[accountOpen,setAccountOpen]=useState(false),[authLoaded,setAuthLoaded]=useState(false);
  const [feedItems,setFeedItems]=useState([]),[feedPage,setFeedPage]=useState(1),[feedLoading,setFeedLoading]=useState(false),[feedMore,setFeedMore]=useState(true);
  const scrollAnchor=useRef(null);
+ const resumeRef=useRef(null);
  const [appIssue,setAppIssue]=useState('');
  const api=useCallback(async(path,params={})=>{const u=new URLSearchParams({path,language:language==='ar'?'ar-SA':'en-US',...params});const r=await fetch('/api/tmdb?'+u);const json=await r.json();if(!r.ok)throw Error(json.error||'Unable to fetch');return json;},[language]);
  useEffect(()=>{setWatchlist(readStorage('movie.watchlist',[]));setHistory(readStorage('movie.history',[]));setLanguage(readStorage('movie.language','en')==='ar'?'ar':'en');fetch('/api/settings').then(r=>r.json()).then(d=>setSiteSettings(d.settings||{})).catch(()=>{});},[]);
@@ -98,7 +99,7 @@ export default function Page(){
    }catch{return[name,[]];}
  })]).then(out=>{if(!alive)return;const o=Object.fromEntries(out);setRows(o);setGenres({movie:o.genre_movie,tv:o.genre_tv});setBusy(false);}).catch(e=>{if(alive){setError(e.message);setBusy(false);}});return()=>{alive=false;};},[api]);
  useEffect(()=>{if(!query.trim()){setSearchResults([]);return;}let active=true;const timer=setTimeout(()=>{api('search/multi',{query}).then(data=>{if(active)setSearchResults((data.results||[]).filter(v=>v.media_type==='movie'||v.media_type==='tv'));}).catch(()=>{if(active)setSearchResults([]);});},320);return()=>{active=false;clearTimeout(timer);};},[query,api]);
- useEffect(()=>{if(!selected){setDetail(null);return;}let active=true;setDetail(null);setEpisode(null);setSeasonData(null);api(category(selected)+'/'+selected.id).then(d=>{if(active){setDetail(d);const first=d.seasons?.find(s=>s.season_number>0);setSeason(first?.season_number??1);}}).catch(()=>{});return()=>{active=false;};},[selected,api]);
+ useEffect(()=>{if(!selected){setDetail(null);return;}let active=true;setDetail(null);setEpisode(null);setSeasonData(null);api(category(selected)+'/'+selected.id).then(d=>{if(active){setDetail(d);const first=d.seasons?.find(s=>s.season_number>0);setSeason(first?.season_number??1);if(resumeRef.current?.id===selected.id&&resumeRef.current.type===category(selected)){const resume=resumeRef.current;resumeRef.current=null;setSeason(resume.season);setEpisode({type:resume.type,id:resume.id,season:resume.season,number:resume.number});}}}).catch(()=>{});return()=>{active=false;};},[selected,api]);
  useEffect(()=>{if(!detail||category(detail)!=='tv')return;let active=true;api('tv/'+detail.id+'/season/'+season).then(d=>{if(active)setSeasonData(d);}).catch(()=>{if(active)setSeasonData(null);});return()=>{active=false;};},[detail,season,api]);
  useEffect(()=>{
    setFeedItems([]);
@@ -159,7 +160,15 @@ export default function Page(){
      }
    }catch{}
  }
- function open(item){setSelected({...item,media_type:category(item)});window.scrollTo({top:0,behavior:'smooth'});}
+ function open(item){resumeRef.current=null;setSelected({...item,media_type:category(item)});window.scrollTo({top:0,behavior:'smooth'});}
+ function resumeWatching(item){
+   if(!item||!item.id)return;
+   const type=category(item);
+   enterFullscreen();
+   resumeRef.current={type,id:item.id,season:Number(item.season)||1,number:Number(item.episode)||1};
+   setSelected({...item,media_type:type});
+   window.scrollTo({top:0,behavior:'smooth'});
+ }
  function toggleList(item){
    const k=keyOf(item),exists=watchlist.some(x=>keyOf(x)===k);
    setWatchlist(old=>exists?old.filter(x=>keyOf(x)!==k):[{...item,media_type:category(item)},...old]);
@@ -185,7 +194,7 @@ export default function Page(){
   {poster(item.poster_path)?<img loading="lazy" src={poster(item.poster_path)} alt="" />:<div className="no-poster">{title(item)}</div>}
   <div className="tile-overlay"><strong>{title(item)}</strong><span>★ {item.vote_average?.toFixed?.(1)||'–'} · {(item.release_date||item.first_air_date||'').slice(0,4)}</span></div>
  </button>;}
- function shelf(label,items,id='',sectionKey=''){if(!items?.length)return null;return <section id={id} className="shelf"><h2><button className="shelf-heading" onClick={()=>nav('section:'+(sectionKey||id.replace('row-','')))}>{label} <span aria-hidden="true">›</span></button></h2><div className="strip">{items.filter(i=>i.poster_path).slice(0,18).map(tile)}</div></section>;}
+ function shelf(label,items,id='',sectionKey=''){if(!items?.length)return null;const isContinue=sectionKey==='continue';return <section id={id} className="shelf"><h2>{isContinue?label:<button className="shelf-heading" onClick={()=>nav('section:'+(sectionKey||id.replace('row-','')))}>{label} <span aria-hidden="true">›</span></button>}</h2><div className="strip">{items.filter(i=>i&&i.poster_path).slice(0,18).map((item,i)=>isContinue?<button className="tile resume-tile" key={'resume-'+keyOf(item)} onClick={()=>resumeWatching(item)} aria-label={(item.title||item.name||'')+' '+(category(item)==='tv'?'S'+(item.season||1)+' E'+(item.episode||1):t.watch)}><img loading="lazy" src={poster(item.poster_path)} alt=""/><span className="resume-label">{category(item)==='tv'?('S'+(item.season||1)+' · E'+(item.episode||1)):(rtl?'متابعة الفيلم':'Continue movie')} <Play size={13} fill="currentColor"/></span></button>:tile(item,i))}</div></section>;}
  const pinned=[...(siteSettings.homepage?.featured_movie_ids||[]),...(siteSettings.homepage?.featured_tv_ids||[])];
  const hero=(rows.trending||[]).find(x=>pinned.includes(x.id)&&x.backdrop_path)||(rows.trending||[]).find(x=>x.backdrop_path && (x.media_type==='movie'||x.media_type==='tv'));
  return <main dir={rtl?'rtl':'ltr'}>
@@ -199,7 +208,7 @@ export default function Page(){
  <div className="quick-categories">
    {[['all',t.trending],['netflix',t.netflix],['prime',t.prime]].map(([id,label])=><button key={id} onClick={()=>document.getElementById('row-'+id)?.scrollIntoView({behavior:'smooth',block:'start'})}>{label}</button>)}
  </div>
- {history.length>0&&shelf(t.continue,history)}
+ {history.length>0&&shelf(t.continue,history,'','continue')}
  {shelf(t.trending,rows.trending,'row-all','trending')}
  {shelf(t.netflix,rows.netflix,'row-netflix','netflix')}
  {shelf(t.prime,rows.prime,'row-prime','prime')}
@@ -215,7 +224,7 @@ export default function Page(){
  </div></>}
  {!selected&&(query.trim()||tab!=='home')&&<section className="content results-page"><div className="results-head"><h1>{query.trim()?t.searchResults:tab==='list'?t.myList:tab.startsWith('section:')?( {trending:t.trending,netflix:t.netflix,prime:t.prime,movies:t.popularMovies,shows:t.popularShows,topMovies:t.topMovies,topShows:t.topShows,now:t.nowPlaying,air:t.onAir}[tab.slice(8)]||t.browse):tab==='movie'?t.movies:t.tv}</h1>{!query.trim()&&(tab==='movie'||tab==='tv'||tab.startsWith('section:'))&&<div className="genre-select"><select value={genre} onChange={e=>{setGenre(e.target.value);setPage(1);setFeedItems([]);setFeedPage(1);setFeedMore(true);}}><option value="">{t.allGenres}</option>{activeGenres.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select><ChevronDown size={17}/></div>}</div>
  {tab.startsWith('section:')&&<button className="back" onClick={()=>nav('home')}>{rtl?<ArrowRight size={18}/>:<ArrowLeft size={18}/>} {t.backHome}</button>}
- {tab==='list'&&!query.trim()&&history.length>0&&shelf(t.continue,history)}
+ {tab==='list'&&!query.trim()&&history.length>0&&shelf(t.continue,history,'','continue')}
  <div className="poster-grid">{(tab.startsWith('section:')?feedItems:[...results,...(!query.trim()&&tab!=='list'?feedItems:[])]).filter(x=>x&&x.poster_path).map(tile)}</div>
  {feedLoading&&<p className="loading">{t.loading}</p>}
  {!query.trim()&&tab!=='list'&&<div ref={scrollAnchor} className="scroll-anchor" aria-hidden="true"/>}
