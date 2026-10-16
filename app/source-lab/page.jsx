@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 const defaults={type:'movie',tmdbId:'',season:'1',episode:'1',provider:'all',quality:'all'};
@@ -10,6 +10,20 @@ export default function SourceLab(){
  const [message,setMessage]=useState('');
  const [busy,setBusy]=useState(false);
  const [playing,setPlaying]=useState('');
+ const playerRef=useRef(null);
+ useEffect(()=>{
+  if(!playing||!playing.includes('.m3u8')||!playerRef.current)return;
+  const video=playerRef.current;
+  if(video.canPlayType('application/vnd.apple.mpegurl')){video.src=playing;return;}
+  let hls,live=true;
+  import('hls.js').then(mod=>{
+   if(!live)return;
+   const Hls=mod.default;
+   if(!Hls.isSupported())return;
+   hls=new Hls();hls.loadSource(playing);hls.attachMedia(video);
+  }).catch(()=>{});
+  return()=>{live=false;hls?.destroy();};
+ },[playing]);
  const [health,setHealth]=useState('');
  useEffect(()=>{try{setSettings({...defaults,...JSON.parse(localStorage.getItem('movie.sourceLab.settings')||'{}')});}catch{}},[]);
  function edit(key,value){setSettings(prev=>{const next={...prev,[key]:value};localStorage.setItem('movie.sourceLab.settings',JSON.stringify(next));return next;});}
@@ -53,7 +67,7 @@ export default function SourceLab(){
    </form>
   </section>
   {message&&<p role="status" style={{marginTop:24,color:'#d5d7df'}}>{message}</p>}
-  {playing&&<section style={{maxWidth:1050,marginTop:20}}><div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}><h2>Preview</h2><button onClick={()=>setPlaying('')} style={{...field,width:'auto'}}>Close player</button></div><video key={playing} src={playing} controls playsInline autoPlay style={{width:'100%',aspectRatio:'16/9',background:'black',borderRadius:10}}/></section>}
+  {playing&&<section style={{maxWidth:1050,marginTop:20}}><div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}><h2>Preview</h2><button onClick={()=>setPlaying('')} style={{...field,width:'auto'}}>Close player</button></div><video ref={playerRef} key={playing} src={playing.includes('.m3u8')?undefined:playing} controls playsInline autoPlay style={{width:'100%',aspectRatio:'16/9',background:'black',borderRadius:10}}/></section>}
   <section style={{maxWidth:1050,display:'grid',gap:12,marginTop:22}}>
    {results.map((x,i)=><article key={i} style={{background:'#171920',border:'1px solid #353743',borderRadius:10,padding:17,display:'flex',gap:15,alignItems:'center',justifyContent:'space-between',flexWrap:'wrap'}}>
     <div><strong>{x.title||x.name||'Video source '+(i+1)}</strong><p style={{margin:'8px 0 0',color:'#adb0bc',fontSize:13}}>Provider: {x.provider||'Unknown'} · Quality: {x.quality||'Unknown'} · Subtitles: {Array.isArray(x.subtitles)?x.subtitles.map(s=>s.lang||s.language).filter(Boolean).join(', ')||'Not listed':'Not listed'}</p></div>
