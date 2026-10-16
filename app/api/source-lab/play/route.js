@@ -84,7 +84,7 @@ export async function GET(request) {
         if(!response) throw Error('Too many redirects');
         if(!response.ok && response.status!==206) return NextResponse.json({error:'Upstream video server returned HTTP '+response.status},{status:502});
         const ct=response.headers.get('content-type') || '';
-        const playlist=/mpegurl|x-mpegurl/i.test(ct) || /\.m3u8(?:\?|$)/i.test(current);
+        const playlist=payload.p || /mpegurl|x-mpegurl/i.test(ct) || /\.m3u8(?:\?|$)/i.test(current);
         if (playlist) {
             const raw=await response.text();
             if(raw.length>4_000_000) throw Error('Playlist is too large');
