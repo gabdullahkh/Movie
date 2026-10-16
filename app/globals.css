@@ -68,3 +68,10 @@ html[dir="rtl"] .search-type-label{left:auto;right:9px}
 .resume-remove:hover,.resume-remove:focus-visible{background:#c81020}
 html[dir="rtl"] .resume-remove{right:auto;left:7px}
 @media(max-width:540px){.resume-card{flex-basis:124px;width:124px}}
+
+.profile-delete{border:1px solid #8e333c;border-radius:7px;background:#38191d;color:#ffb7bc;padding:9px 11px;font-size:12px}
+.profile-delete:disabled{opacity:.4;cursor:not-allowed}
+.profile-confirm{border:1px solid #90434a;background:#2d171b;border-radius:9px;padding:14px;margin:12px 0}
+.profile-confirm p{font-size:13px;line-height:1.5;color:#eee}
+.profile-confirm button{border:1px solid #59565b;border-radius:6px;background:#292a31;color:#fff;padding:9px 13px;margin-inline-end:8px}
+.profile-confirm button:first-of-type{background:#bb1725;border-color:#bb1725}
