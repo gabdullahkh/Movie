@@ -1,23 +1,28 @@
 # Movie
 
-Netflix-inspired, bilingual (Arabic/English) movie and TV discovery website using the official TMDB API and an embedded URPlayer.
-
-## Deployment
-1. Import this repository into Vercel (Next.js preset).
-2. Get a **v3 API Key** from https://www.themoviedb.org/settings/api
-3. Once development and testing are complete, add `TMDB_API_KEY` to the hosting environment. Vercel deployment is deliberately reserved for the final step.
-4. Open the site. No authentication is required.
+Bilingual (English/Arabic) Next.js movie and TV discovery app.
 
 ## Features
-- Trending, popular, top rated, search, movie/TV genre discovery
-- Film details and series seasons/episodes
-- Language toggle (Arabic/English), responsive design
-- Watchlist and continue watching stored in each device's localStorage; **not synced between devices**
-- Movie player: `https://urplayer.net/embed/movie/{tmdb_id}`
-- Episode player: `https://urplayer.net/embed/tv/{tmdb_id}/{season}/{episode}`
+- TMDB movies, TV shows, posters, trending, search, seasons and episodes.
+- Recent releases available on Netflix, Prime Video and Disney+ in Saudi Arabia, filtered through TMDB watch-provider data. **These rows do not establish the date a title was added to a streaming service.**
+- Embedded URPlayer, inside a sandboxed iframe that denies popup windows and top-level navigation. Advertisements inside the iframe remain under the provider's control; restrictive sandboxing may affect playback.
+- Optional email/password accounts via Supabase Auth. Browsing and playback do not require login.
+- Watchlist and viewing history are stored locally for guests and in the protected `user_library` table for signed-in accounts.
+- Supabase `site_settings` controls shared homepage settings.
 
-## Supabase (optional; no authentication)
-Supabase project `wdezottacdblvhmzbizu` is connected for read-only public site settings (`public.site_settings`) using a publishable key. The homepage can optionally pin featured TMDB IDs from `homepage.featured_movie_ids` or `homepage.featured_tv_ids`, if those titles appear in the trending response. Anonymous viewers cannot securely own cross-device records without authentication. The settings table has Row Level Security enabled and grants only public SELECT. **Do not create public write policies for personal viewing data.** The current app does not send viewing histories to Supabase.
+## Hosting
+Next.js framework, repository root `./`, build command `npm run build`, Node.js 22.
 
-## Notes
-This product uses the TMDB API but is not endorsed or certified by TMDB. TMDB attribution appears in the footer. Streaming is delivered by URPlayer, not TMDB. URPlayer may show ads or redirect users; embedded player internals are outside the website's control. Check rights, licensing and terms before publishing.
+Required hosting environment variable: `TMDB_API_KEY`, or alternatively `TMDB_READ_ACCESS_TOKEN`. Never commit a TMDB API credential to GitHub.
+
+Supabase project `wdezottacdblvhmzbizu` uses a public publishable key for browser access and Row Level Security for account-specific database rows. Never put a Supabase secret/service-role key in the frontend.
+
+## Important Supabase Auth settings
+Open Supabase Dashboard → Authentication → URL Configuration.
+- Set the **Site URL** to the production website origin (e.g. `https://your-project.vercel.app`).
+- Add the same production origin or `https://your-project.vercel.app/**` to **Redirect URLs**.
+- Enable the Email authentication provider in Authentication → Providers.
+- Configure email confirmation/SMTP as appropriate for account signup. Supabase may enforce email sending limits.
+
+## Attribution and restrictions
+This product uses the TMDB API but is not endorsed or certified by TMDB. Media streaming is delivered by URPlayer, not TMDB. Rights/licensing of third-party video content must be assessed prior to public operation.
