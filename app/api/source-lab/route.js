@@ -65,7 +65,7 @@ export async function GET(request) {
     }
     const streams = result.flatMap(item => item.streams).map(stream => ({
         ...stream,
-        playbackUrl: typeof stream.url === 'string' ? createPlaybackUrl(stream.url, stream.headers || {}) : null
+        playbackUrl: typeof stream.url === 'string' ? createPlaybackUrl(stream.url, stream.headers || {}, undefined, /HLS|m3u8/i.test(stream.title || '') || /\.m3u8(?:[?#]|$)/i.test(stream.url)) : null
     }));
     return json({ streams, checked: selected.length, errors: result.filter(x => x.error).map(x => ({ provider: x.name, error: x.error })) });
 }
