@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import AccountPanel from '../components/AccountPanel';
 import { supabase } from '../lib/supabase';
 import { Search, Play, Plus, Check, X, Globe2, Bookmark, Clapperboard, Tv, Home, ArrowLeft, ArrowRight, Star, ChevronDown } from 'lucide-react';
@@ -11,7 +11,7 @@ const labels={
  en:{home:'Home',movies:'Movies',tv:'TV Shows',myList:'My List',search:'Search movies and TV shows',trending:'Trending this week',popularMovies:'Popular movies',popularShows:'Popular TV shows',topMovies:'Top rated movies',topShows:'Top rated TV shows',netflix:'Latest on Netflix',prime:'Latest on Prime Video',disney:'Latest on Disney+',account:'Account',onAir:'Currently airing',nowPlaying:'Now playing',watch:'Watch Now',details:'More Info',add:'My List',remove:'Remove from list',seasons:'Seasons',episodes:'Episodes',episode:'Episode',continue:'Continue watching',back:'Back',allGenres:'All Genres',noResults:'No titles found.',emptyList:'Your list is empty. Add movies or shows to save them here.',loading:'Loading...',rating:'Rating',overview:'Overview',noOverview:'No description available.',unavailable:'Unable to load titles. Check TMDB API configuration.',playerNotice:'Playback is provided by a third-party website. Ads and external redirects are outside our control.',tmdb:'This product uses the TMDB API but is not endorsed or certified by TMDB.',close:'Close',searchResults:'Search results',browse:'Browse',selectEpisode:'Select an episode',more:'Show more',backHome:'Back to home'},
  ar:{home:'الرئيسية',movies:'أفلام',tv:'مسلسلات',myList:'قائمتي',search:'ابحث عن أفلام ومسلسلات',trending:'الرائج هذا الأسبوع',popularMovies:'أفلام شائعة',popularShows:'مسلسلات شائعة',topMovies:'أعلى الأفلام تقييماً',topShows:'أعلى المسلسلات تقييماً',netflix:'الأحدث على نتفليكس',prime:'الأحدث على برايم فيديو',disney:'الأحدث على ديزني+',account:'الحساب',onAir:'يعرض الآن',nowPlaying:'في السينما',watch:'شاهد الآن',details:'المزيد من التفاصيل',add:'إضافة إلى قائمتي',remove:'إزالة من قائمتي',seasons:'المواسم',episodes:'الحلقات',episode:'الحلقة',continue:'متابعة المشاهدة',back:'رجوع',allGenres:'كل الأنواع',noResults:'لا توجد نتائج.',emptyList:'قائمتك فارغة. أضف أفلاماً أو مسلسلات لحفظها هنا.',loading:'جاري التحميل...',rating:'التقييم',overview:'القصة',noOverview:'لا يوجد وصف متوفر.',unavailable:'تعذر تحميل البيانات. تحقق من إعدادات TMDB.',playerNotice:'المشاهدة عبر مشغل خارجي. الإعلانات والتحويلات خارج تحكمنا.',tmdb:'هذا المنتج يستخدم واجهة TMDB لكنه غير معتمد أو مدعوم من TMDB.',close:'إغلاق',searchResults:'نتائج البحث',browse:'تصفح',selectEpisode:'اختر الحلقة',more:'عرض المزيد',backHome:'العودة للرئيسية'}
 };
-function readStorage(key,fallback){try{const d=localStorage.getItem(key);return d?JSON.parse(d):fallback;}catch{return fallback;}}
+function readStorage(key,fallback){try{const d=localStorage.getItem(key);if(!d)return fallback;const parsed=JSON.parse(d);return Array.isArray(fallback)?(Array.isArray(parsed)?parsed:fallback):parsed;}catch{return fallback;}}
 const keyOf=(item)=>category(item)+':'+item.id;
 export default function Page(){
  const [language,setLanguage]=useState('en');
@@ -21,6 +21,9 @@ export default function Page(){
  const [selected,setSelected]=useState(null),[detail,setDetail]=useState(null),[season,setSeason]=useState(1),[seasonData,setSeasonData]=useState(null),[episode,setEpisode]=useState(null);
  const [watchlist,setWatchlist]=useState([]),[history,setHistory]=useState([]),[siteSettings,setSiteSettings]=useState({}),[busy,setBusy]=useState(true),[error,setError]=useState(''),[page,setPage]=useState(1);
  const [session,setSession]=useState(null),[accountOpen,setAccountOpen]=useState(false),[authLoaded,setAuthLoaded]=useState(false);
+ const [feedItems,setFeedItems]=useState([]),[feedPage,setFeedPage]=useState(1),[feedLoading,setFeedLoading]=useState(false),[feedMore,setFeedMore]=useState(true);
+ const scrollAnchor=useRef(null);
+ const [appIssue,setAppIssue]=useState('');
  const api=useCallback(async(path,params={})=>{const u=new URLSearchParams({path,language:language==='ar'?'ar-SA':'en-US',...params});const r=await fetch('/api/tmdb?'+u);const json=await r.json();if(!r.ok)throw Error(json.error||'Unable to fetch');return json;},[language]);
  useEffect(()=>{setWatchlist(readStorage('movie.watchlist',[]));setHistory(readStorage('movie.history',[]));setLanguage(readStorage('movie.language','en'));fetch('/api/settings').then(r=>r.json()).then(d=>setSiteSettings(d.settings||{})).catch(()=>{});},[]);
  useEffect(()=>{localStorage.setItem('movie.language',JSON.stringify(language));document.documentElement.lang=language;document.documentElement.dir=rtl?'rtl':'ltr';},[language,rtl]);
@@ -87,6 +90,52 @@ export default function Page(){
  useEffect(()=>{if(!selected){setDetail(null);return;}let active=true;setDetail(null);setEpisode(null);setSeasonData(null);api(category(selected)+'/'+selected.id).then(d=>{if(active){setDetail(d);const first=d.seasons?.find(s=>s.season_number>0);setSeason(first?.season_number??1);}}).catch(()=>{});return()=>{active=false;};},[selected,api]);
  useEffect(()=>{if(!detail||category(detail)!=='tv')return;let active=true;api('tv/'+detail.id+'/season/'+season).then(d=>{if(active)setSeasonData(d);}).catch(()=>{if(active)setSeasonData(null);});return()=>{active=false;};},[detail,season,api]);
  useEffect(()=>{if(!genre||tab==='home'||tab==='list'||tab==='search')return;let active=true;api('discover/'+tab,{with_genres:genre,page:String(page),sort_by:'popularity.desc'}).then(d=>{if(active)setRows(old=>({...old,discovered:page===1?(d.results||[]):[...(old.discovered||[]),...(d.results||[])]}));}).catch(()=>{});return()=>{active=false;};},[genre,tab,page,api]);
+ useEffect(()=>{
+   setFeedItems([]);
+   setFeedPage(1);
+   setFeedMore(true);
+ },[tab,genre,language,Boolean(query.trim())]);
+ useEffect(()=>{
+   if(feedPage<=1||query.trim()||tab==='list')return;
+   let active=true;
+   setFeedLoading(true);
+   const params={page:String(feedPage),sort_by:'popularity.desc'};
+   if(genre&&(tab==='movie'||tab==='tv'))params.with_genres=genre;
+   const get=tab==='home'
+    ? Promise.all([api('discover/movie',params),api('discover/tv',params)]).then(([movies,shows])=>[
+       ...(movies.results||[]).map(x=>({...x,media_type:'movie'})),
+       ...(shows.results||[]).map(x=>({...x,media_type:'tv'}))
+     ])
+    :api('discover/'+tab,params).then(d=>(d.results||[]).map(x=>({...x,media_type:tab})));
+   get.then(items=>{
+     if(!active)return;
+     setFeedItems(old=>{
+       const keys=new Set(old.map(keyOf));
+       return [...old,...items.filter(x=>{const k=keyOf(x);if(keys.has(k))return false;keys.add(k);return true;})];
+     });
+     if(items.length===0||feedPage>=100)setFeedMore(false);
+   }).catch(err=>{if(active){setFeedMore(false);setAppIssue(err.message||'More titles could not be loaded');}})
+   .finally(()=>{if(active)setFeedLoading(false);});
+   return()=>{active=false;};
+ },[feedPage,tab,genre,language,query,api]);
+ useEffect(()=>{
+   const node=scrollAnchor.current;
+   if(!node||feedLoading||!feedMore||busy||Boolean(selected)||Boolean(query.trim())||tab==='list')return;
+   const observer=new IntersectionObserver(entries=>{
+     if(entries[0]?.isIntersecting)setFeedPage(p=>p+1);
+   },{rootMargin:'600px'});
+   observer.observe(node);
+   return()=>observer.disconnect();
+ },[feedLoading,feedMore,busy,selected,query,tab,feedPage]);
+ function enterFullscreen(){
+   try{
+     const root=document.documentElement;
+     if(root.requestFullscreen&&!document.fullscreenElement){
+       const promise=root.requestFullscreen({navigationUI:'hide'});
+       if(promise?.catch)promise.catch(()=>{});
+     }
+   }catch{}
+ }
  function open(item){setSelected({...item,media_type:category(item)});window.scrollTo({top:0,behavior:'smooth'});}
  function toggleList(item){
    const k=keyOf(item),exists=watchlist.some(x=>keyOf(x)===k);
@@ -98,6 +147,7 @@ export default function Page(){
    }
  }
  function play(item,s=1,e=1){
+   enterFullscreen();
    const type=category(item),entry={...item,media_type:type,season:s,episode:e,watchedAt:Date.now()};
    setHistory(old=>[entry,...old.filter(x=>keyOf(x)!==keyOf(entry))].slice(0,25));
    if(!session?.user?.id)localStorage.setItem('movie.history',JSON.stringify([entry,...history.filter(x=>keyOf(x)!==keyOf(entry))].slice(0,25)));
@@ -118,6 +168,7 @@ export default function Page(){
  return <main dir={rtl?'rtl':'ltr'}>
  <header className="topbar"><button className="brand" onClick={()=>nav('home')}>MOVIE<span>.</span></button><nav className="main-nav"><button className={tab==='home'?'active':''} onClick={()=>nav('home')}>{t.home}</button><button className={tab==='movie'?'active':''} onClick={()=>nav('movie')}>{t.movies}</button><button className={tab==='tv'?'active':''} onClick={()=>nav('tv')}>{t.tv}</button><button className={tab==='list'?'active':''} onClick={()=>nav('list')}>{t.myList}</button></nav><div className="nav-actions"><div className="searchbox"><Search size={17}/><input aria-label={t.search} value={query} onChange={e=>{setQuery(e.target.value);setSelected(null);}} placeholder={t.search}/>{query&&<button aria-label={t.close} onClick={()=>setQuery('')}><X size={16}/></button>}</div><button className="account-button" onClick={()=>setAccountOpen(true)}>{session?.user?.email?session.user.email.split('@')[0]:t.account}</button><button className="language" onClick={()=>setLanguage(x=>x==='en'?'ar':'en')} aria-label="Change language"><Globe2 size={18}/><span>{language==='en'?'العربية':'English'}</span></button></div></header>
  {error&&<div className="error">{t.unavailable} <small>{error}</small></div>}
+ {appIssue&&<div className="error" role="alert">{appIssue}</div>}
  {busy&&<p className="loading">{t.loading}</p>}
  {!busy&&!selected&&!query.trim()&&tab==='home'&&<>
  {hero&&<section className="hero" style={{backgroundImage:'linear-gradient(90deg,rgba(8,9,13,.96),rgba(8,9,13,.45) 60%,rgba(8,9,13,.25)),linear-gradient(0deg,#08090d,transparent 35%),url('+poster(hero.backdrop_path,'original')+')'}}><div className="hero-content"><span className="eyebrow">{t.trending}</span><h1>{title(hero)}</h1><p>{hero.overview?.slice(0,230)}{hero.overview?.length>230?'…':''}</p><div className="hero-buttons"><button className="primary" onClick={()=>{open(hero);if(category(hero)==='movie')play(hero);}}><Play size={19} fill="currentColor"/>{t.watch}</button><button className="secondary" onClick={()=>open(hero)}>{t.details}</button></div></div></section>}
@@ -136,18 +187,23 @@ export default function Page(){
  {shelf(t.topShows,rows.topShows)}
  {shelf(t.nowPlaying,rows.now)}
  {shelf(t.onAir,rows.air)}
+ <section className="shelf discover-feed"><h2>{rtl?'اكتشف المزيد':'Discover more'}</h2><div className="poster-grid">{feedItems.filter(x=>x.poster_path).map(tile)}</div></section>
+ {feedLoading&&<p className="loading">{t.loading}</p>}
+ <div ref={tab==='home'?scrollAnchor:null} className="scroll-anchor" aria-hidden="true"/>
  </div></>}
  {!selected&&(query.trim()||tab!=='home')&&<section className="content results-page"><div className="results-head"><h1>{query.trim()?t.searchResults:tab==='list'?t.myList:tab==='movie'?t.movies:t.tv}</h1>{!query.trim()&&(tab==='movie'||tab==='tv')&&<div className="genre-select"><select value={genre} onChange={e=>{setGenre(e.target.value);setPage(1);}}><option value="">{t.allGenres}</option>{activeGenres.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select><ChevronDown size={17}/></div>}</div>
  {tab==='list'&&!query.trim()&&history.length>0&&shelf(t.continue,history)}
- <div className="poster-grid">{results.filter(x=>x.poster_path).map(tile)}</div>
+ <div className="poster-grid">{[...results,...(!query.trim()&&tab!=='list'?feedItems:[])].filter(x=>x.poster_path).map(tile)}</div>
+ {feedLoading&&<p className="loading">{t.loading}</p>}
+ {!query.trim()&&tab!=='list'&&<div ref={scrollAnchor} className="scroll-anchor" aria-hidden="true"/>
  {!results.length&&!busy&&<p className="empty">{tab==='list'&&!query.trim()?t.emptyList:t.noResults}</p>}
- {genre&&results.length>0&&!query.trim()&&<button className="more" onClick={()=>setPage(x=>x+1)}>{t.more}</button>}
+ 
  </section>}
  {selected&&<section className="detail-page"><button className="back" onClick={()=>{setSelected(null);setEpisode(null);}}>{rtl?<ArrowRight size={18}/>:<ArrowLeft size={18}/>} {t.back}</button>
  <div className="detail-hero" style={{backgroundImage:detail?.backdrop_path?'linear-gradient(0deg,#08090d 0%,rgba(8,9,13,.25) 90%),url('+poster(detail.backdrop_path,'original')+')':undefined}}/>
  <div className="detail-info"><div className="detail-poster">{detail?.poster_path&&<img src={poster(detail.poster_path)} alt=""/>}</div><div className="detail-body"><span className="eyebrow">{category(selected)==='tv'?t.tv:t.movies}</span><h1>{detail?.title||detail?.name||title(selected)}</h1><p className="facts"><Star size={17} fill="#ffc04d" color="#ffc04d"/> {detail?.vote_average?.toFixed?.(1)||'–'} · {(detail?.release_date||detail?.first_air_date||'').slice(0,4)} · {detail?.genres?.map(g=>g.name).join(' / ')}</p><p className="synopsis">{detail?.overview||t.noOverview}</p><div className="actions"><button className="primary" onClick={()=>play(selected,season,1)}><Play size={18} fill="currentColor"/> {t.watch}</button><button className="secondary" onClick={()=>toggleList(selected)}>{watchlist.some(x=>keyOf(x)===keyOf(selected))?<Check size={19}/>:<Plus size={19}/>} {watchlist.some(x=>keyOf(x)===keyOf(selected))?t.remove:t.add}</button></div></div></div>
  {category(selected)==='tv'&&<div className="season-area"><div className="results-head"><h2>{t.episodes}</h2><div className="genre-select"><select value={season} onChange={e=>{setSeason(Number(e.target.value));setEpisode(null);}}>{(detail?.seasons||[]).filter(s=>s.season_number>0).map(s=><option key={s.id} value={s.season_number}>{s.name}</option>)}</select><ChevronDown size={16}/></div></div><div className="episode-list">{(seasonData?.episodes||[]).map(ep=><button className="episode-card" key={ep.id} onClick={()=>play(selected,season,ep.episode_number)}>{ep.still_path?<img loading="lazy" src={poster(ep.still_path,'w300')} alt=""/>:<div className="still-placeholder"><Tv/></div>}<div><h3>{ep.episode_number}. {ep.name}</h3><p>{ep.overview?.slice(0,180)||t.noOverview}</p><small>{ep.runtime?ep.runtime+' min':''}</small></div><Play size={20}/></button>)}</div></div>}
- {episode&&<div className="player-shade" role="dialog" aria-modal="true" aria-label={t.watch}><div className="player-box"><div className="player-header"><strong>{title(selected)} {episode.type==='tv'?' · S'+episode.season+' E'+episode.number:''}</strong><button onClick={()=>setEpisode(null)} aria-label={t.close}><X size={23}/></button></div><div className="video-wrap"><iframe key={episode.type+episode.id+episode.season+episode.number} src={episode.type==='movie'?'https://urplayer.net/embed/movie/'+episode.id:'https://urplayer.net/embed/tv/'+episode.id+'/'+episode.season+'/'+episode.number} title="URPlayer" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen sandbox="allow-scripts allow-same-origin allow-forms allow-presentation" referrerPolicy="no-referrer"/></div><p>{t.playerNotice}</p></div></div>}
+ {episode&&<div className="player-shade" role="dialog" aria-modal="true" aria-label={t.watch}><div className="player-box"><div className="player-header"><strong>{title(selected)} {episode.type==='tv'?' · S'+episode.season+' E'+episode.number:''}</strong><button onClick={()=>{setEpisode(null);if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});}} aria-label={t.close}><X size={23}/></button></div><div className="video-wrap"><iframe key={episode.type+episode.id+episode.season+episode.number} src={episode.type==='movie'?'https://urplayer.net/embed/movie/'+episode.id:'https://urplayer.net/embed/tv/'+episode.id+'/'+episode.season+'/'+episode.number} title="URPlayer" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen sandbox="allow-scripts allow-same-origin allow-forms allow-presentation" referrerPolicy="no-referrer"/></div><p>{t.playerNotice}</p></div></div>}
  </section>}
  {accountOpen&&<AccountPanel language={language} session={session} onClose={()=>setAccountOpen(false)}/>}
  <footer><span>{t.tmdb}</span><a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer">TMDB</a><span> · </span><a href="https://urplayer.net" target="_blank" rel="noopener noreferrer">URPlayer</a></footer>
