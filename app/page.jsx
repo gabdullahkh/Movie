@@ -32,6 +32,7 @@ export default function Page(){
  const [selected,setSelected]=useState(null),[detail,setDetail]=useState(null),[season,setSeason]=useState(1),[seasonData,setSeasonData]=useState(null),[episode,setEpisode]=useState(null);
  const [watchlist,setWatchlist]=useState([]),[history,setHistory]=useState([]),[siteSettings,setSiteSettings]=useState({}),[busy,setBusy]=useState(true),[error,setError]=useState(''),[page,setPage]=useState(1);
  const [session,setSession]=useState(null),[accountOpen,setAccountOpen]=useState(false),[authLoaded,setAuthLoaded]=useState(false);
+ const [profiles,setProfiles]=useState([]),[activeProfileId,setActiveProfileId]=useState(null),[libraryReady,setLibraryReady]=useState(false);
  const [feedItems,setFeedItems]=useState([]),[feedPage,setFeedPage]=useState(1),[feedLoading,setFeedLoading]=useState(false),[feedMore,setFeedMore]=useState(true);
  const scrollAnchor=useRef(null);
  const resumeRef=useRef(null);
@@ -49,38 +50,67 @@ export default function Page(){
  useEffect(()=>{
    if(!authLoaded)return;
    if(!session?.user?.id){
-     setWatchlist(readStorage('movie.watchlist',[]));
-     setHistory(readStorage('movie.history',[]));
+     setProfiles([]);setActiveProfileId(null);setLibraryReady(true);
+     setWatchlist(readStorage('movie.watchlist',[]));setHistory(readStorage('movie.history',[]));
      return;
    }
-   let active=true;
-   const uid=session.user.id;
+   let alive=true;const uid=session.user.id;
+   setLibraryReady(false);setProfiles([]);setActiveProfileId(null);setHistory([]);setWatchlist([]);
    (async()=>{
-     const {data,error}=await supabase.from('user_library').select('item_key,kind,payload').eq('user_id',uid);
-     if(!active||error)return;
-     const savedList=(data||[]).filter(x=>x.kind==='watchlist').map(x=>x.payload);
-     const savedHistory=(data||[]).filter(x=>x.kind==='history').map(x=>x.payload);
-     if(data.length===0){
-       const localList=readStorage('movie.watchlist',[]);
-       const localHistory=readStorage('movie.history',[]);
-       const items=[
-         ...localList.map(x=>({user_id:uid,kind:'watchlist',item_key:keyOf(x),payload:x})),
-         ...localHistory.map(x=>({user_id:uid,kind:'history',item_key:keyOf(x),payload:x}))
-       ];
-       if(items.length) await supabase.from('user_library').upsert(items,{onConflict:'user_id,item_key,kind'});
-       if(active){setWatchlist(localList);setHistory(localHistory);}
-     }else{
-       setWatchlist(savedList);
-       setHistory(savedHistory.sort((a,b)=>(b.watchedAt||0)-(a.watchedAt||0)));
-     }
+     try{
+       const {data:existing,error:err}=await supabase.from('movie_profiles').select('id,name').eq('user_id',uid).order('created_at');
+       if(err)throw err;
+       let list=existing||[];
+       if(!list.length){
+         const {data:created,error:createError}=await supabase.from('movie_profiles').insert({user_id:uid,name:'Main'}).select('id,name').single();
+         if(createError)throw createError;
+         list=[created];
+         const {data:legacy}=await supabase.from('user_library').select('item_key,kind,payload').eq('user_id',uid);
+         if(legacy?.length) await supabase.from('movie_profile_library').upsert(legacy.map(x=>({profile_id:created.id,item_key:x.item_key,kind:x.kind,payload:x.payload})),{onConflict:'profile_id,item_key,kind'});
+       }
+       if(alive){
+         setProfiles(list);
+         const saved=localStorage.getItem('movie.activeProfile.'+uid);
+         setActiveProfileId(list.some(p=>p.id===saved)?saved:list[0].id);
+       }
+     }catch(err){if(alive){setAppIssue(err.message||'Unable to load family profiles');setLibraryReady(false);}}
    })();
-   return()=>{active=false;};
- },[session?.user?.id,authLoaded]);
- useEffect(()=>{let alive=true;setBusy(true);setError('');const endpoints={trending:'trending/all/week',movies:'movie/popular',shows:'tv/popular',topMovies:'movie/top_rated',topShows:'tv/top_rated',now:'movie/now_playing',air:'tv/on_the_air'};
+   return()=>{alive=false;};
+ },[authLoaded,session?.user?.id]);
+ useEffect(()=>{
+   if(!session?.user?.id||!activeProfileId)return;
+   let alive=true;setLibraryReady(false);setHistory([]);setWatchlist([]);
+   localStorage.setItem('movie.activeProfile.'+session.user.id,activeProfileId);
+   (async()=>{
+     const {data,error}=await supabase.from('movie_profile_library').select('kind,payload').eq('profile_id',activeProfileId);
+     if(!alive)return;
+     if(error){setAppIssue(error.message);return;}
+     const items=data||[];
+     setWatchlist(items.filter(x=>x.kind==='watchlist').map(x=>x.payload));
+     setHistory(items.filter(x=>x.kind==='history').map(x=>x.payload).sort((a,b)=>(b.watchedAt||0)-(a.watchedAt||0)));
+     setLibraryReady(true);
+   })();
+   return()=>{alive=false;};
+ },[activeProfileId,session?.user?.id]);
+ async function addProfile(name){
+   if(!session?.user?.id)throw Error('Sign in first');
+   if(profiles.length>=8)throw Error('Maximum eight profiles');
+   const {data,error}=await supabase.from('movie_profiles').insert({user_id:session.user.id,name}).select('id,name').single();
+   if(error)throw error;
+   setProfiles(old=>[...old,data]);setActiveProfileId(data.id);
+ }
+ useEffect(()=>{let alive=true;setBusy(true);setError('');const endpoints={trending:'trending/all/week',movies:'movie/popular',shows:'tv/popular',topMovies:'movie/top_rated',topShows:'tv/top_rated',now:'movie/now_playing',air:'tv/on_the_air',newEpisodes:'tv/airing_today'};
  const providers={netflix:8,prime:119};
  const since=new Date(Date.now()-540*86400000).toISOString().slice(0,10);
  const today=new Date().toISOString().slice(0,10);
+ const newFrom=new Date(Date.now()-90*86400000).toISOString().slice(0,10);
  Promise.all([...Object.entries(endpoints).map(async ([key,path])=>[key,(await api(path)).results||[]]),...['movie','tv'].map(async type=>['genre_'+type,(await api('genre/'+type+'/list')).genres||[]]),
+  (async()=>{
+    try{
+      const data=await api('discover/movie',{sort_by:'primary_release_date.desc','primary_release_date.gte':newFrom,'primary_release_date.lte':today});
+      return ['newMovies',(data.results||[]).map(x=>({...x,media_type:'movie'}))];
+    }catch{return ['newMovies',[]];}
+  })(),
  ...Object.entries(providers).map(async ([name,id])=>{
    try{
      const [movies,shows]=await Promise.all([
@@ -192,20 +222,22 @@ export default function Page(){
    window.scrollTo({top:0,behavior:'smooth'});
  }
  function toggleList(item){
+   if(session?.user?.id&&!libraryReady)return;
    const k=keyOf(item),exists=watchlist.some(x=>keyOf(x)===k);
    setWatchlist(old=>exists?old.filter(x=>keyOf(x)!==k):[{...item,media_type:category(item)},...old]);
    if(!session?.user?.id)localStorage.setItem('movie.watchlist',JSON.stringify(exists?watchlist.filter(x=>keyOf(x)!==k):[{...item,media_type:category(item)},...watchlist]));
-   if(session?.user?.id){
-     if(exists) supabase.from('user_library').delete().eq('user_id',session.user.id).eq('kind','watchlist').eq('item_key',k).then(()=>{});
-     else supabase.from('user_library').upsert({user_id:session.user.id,kind:'watchlist',item_key:k,payload:{...item,media_type:category(item)}},{onConflict:'user_id,item_key,kind'}).then(()=>{});
+   if(session?.user?.id&&activeProfileId&&libraryReady){
+     if(exists) supabase.from('movie_profile_library').delete().eq('profile_id',activeProfileId).eq('kind','watchlist').eq('item_key',k).then(()=>{});
+     else supabase.from('movie_profile_library').upsert({profile_id:activeProfileId,kind:'watchlist',item_key:k,payload:{...item,media_type:category(item)}},{onConflict:'profile_id,item_key,kind'}).then(()=>{});
    }
  }
  function play(item,s=1,e=1){
+   if(session?.user?.id&&!libraryReady)return;
    enterFullscreen();
    const type=category(item),entry={...item,media_type:type,season:s,episode:e,watchedAt:Date.now()};
    setHistory(old=>[entry,...old.filter(x=>keyOf(x)!==keyOf(entry))].slice(0,25));
    if(!session?.user?.id)localStorage.setItem('movie.history',JSON.stringify([entry,...history.filter(x=>keyOf(x)!==keyOf(entry))].slice(0,25)));
-   if(session?.user?.id) supabase.from('user_library').upsert({user_id:session.user.id,kind:'history',item_key:keyOf(entry),payload:entry},{onConflict:'user_id,item_key,kind'}).then(()=>{});
+   if(session?.user?.id&&activeProfileId&&libraryReady) supabase.from('movie_profile_library').upsert({profile_id:activeProfileId,kind:'history',item_key:keyOf(entry),payload:entry},{onConflict:'profile_id,item_key,kind'}).then(()=>{});
    setEpisode({type,id:item.id,season:s,number:e});
  }
  const nav=(next)=>{setTab(next);setQuery('');setGenre('');setPage(1);setSelected(null);setEpisode(null);window.scrollTo(0,0);};
@@ -221,7 +253,7 @@ export default function Page(){
  const pinned=[...(siteSettings.homepage?.featured_movie_ids||[]),...(siteSettings.homepage?.featured_tv_ids||[])];
  const hero=(rows.trending||[]).find(x=>pinned.includes(x.id)&&x.backdrop_path)||(rows.trending||[]).find(x=>x.backdrop_path && (x.media_type==='movie'||x.media_type==='tv'));
  return <main dir={rtl?'rtl':'ltr'}>
- <header className="topbar"><button className="brand" onClick={()=>nav('home')}>MOVIE<span>.</span></button><nav className="main-nav"><button className={tab==='home'?'active':''} onClick={()=>nav('home')}>{t.home}</button><button className={tab==='movie'?'active':''} onClick={()=>nav('movie')}>{t.movies}</button><button className={tab==='tv'?'active':''} onClick={()=>nav('tv')}>{t.tv}</button><button className={tab==='list'?'active':''} onClick={()=>nav('list')}>{t.myList}</button></nav><div className="nav-actions"><div className="searchbox"><Search size={17}/><input aria-label={t.search} value={query} onChange={e=>{setQuery(e.target.value);setSelected(null);}} placeholder={t.search}/>{query&&<button aria-label={t.close} onClick={()=>setQuery('')}><X size={16}/></button>}</div><button className="account-button" onClick={()=>setAccountOpen(true)}>{session?.user?.email?session.user.email.split('@')[0]:t.account}</button><button className="language" onClick={()=>setLanguage(x=>x==='en'?'ar':'en')} aria-label="Change language"><Globe2 size={18}/><span>{language==='en'?'العربية':'English'}</span></button></div></header>
+ <header className="topbar"><button className="brand" onClick={()=>nav('home')}>MOVIE<span>.</span></button><nav className="main-nav"><button className={tab==='home'?'active':''} onClick={()=>nav('home')}>{t.home}</button><button className={tab==='movie'?'active':''} onClick={()=>nav('movie')}>{t.movies}</button><button className={tab==='tv'?'active':''} onClick={()=>nav('tv')}>{t.tv}</button><button className={tab==='list'?'active':''} onClick={()=>nav('list')}>{t.myList}</button></nav><div className="nav-actions"><div className="searchbox"><Search size={17}/><input aria-label={t.search} value={query} onChange={e=>{setQuery(e.target.value);setSelected(null);}} placeholder={t.search}/>{query&&<button aria-label={t.close} onClick={()=>setQuery('')}><X size={16}/></button>}</div><button className="account-button" onClick={()=>setAccountOpen(true)}>{session?.user?.email?(profiles.find(p=>p.id===activeProfileId)?.name||session.user.email.split('@')[0]):t.account}</button><button className="language" onClick={()=>setLanguage(x=>x==='en'?'ar':'en')} aria-label="Change language"><Globe2 size={18}/><span>{language==='en'?'العربية':'English'}</span></button></div></header>
  {error&&<div className="error">{t.unavailable} <small>{error}</small></div>}
  {appIssue&&<div className="error" role="alert">{appIssue}</div>}
  {busy&&!query.trim()&&<p className="loading">{t.loading}</p>}
@@ -231,7 +263,7 @@ export default function Page(){
  <div className="quick-categories">
    {[['all',t.trending],['netflix',t.netflix],['prime',t.prime]].map(([id,label])=><button key={id} onClick={()=>document.getElementById('row-'+id)?.scrollIntoView({behavior:'smooth',block:'start'})}>{label}</button>)}
  </div>
- {history.length>0&&shelf(t.continue,history,'','continue')}
+ {libraryReady&&history.length>0&&shelf(t.continue,history,'','continue')}
  {shelf(t.trending,rows.trending,'row-all','trending')}
  {shelf(t.netflix,rows.netflix,'row-netflix','netflix')}
  {shelf(t.prime,rows.prime,'row-prime','prime')}
@@ -247,7 +279,7 @@ export default function Page(){
  </div></>}
  {!selected&&(query.trim()||tab!=='home')&&<section className="content results-page"><div className="results-head"><h1>{query.trim()?t.searchResults:tab==='list'?t.myList:tab.startsWith('section:')?( {trending:t.trending,netflix:t.netflix,prime:t.prime,movies:t.popularMovies,shows:t.popularShows,topMovies:t.topMovies,topShows:t.topShows,now:t.nowPlaying,air:t.onAir}[tab.slice(8)]||t.browse):tab==='movie'?t.movies:t.tv}</h1>{!query.trim()&&(tab==='movie'||tab==='tv'||tab.startsWith('section:'))&&<div className="genre-select"><select value={genre} onChange={e=>{setGenre(e.target.value);setPage(1);setFeedItems([]);setFeedPage(1);setFeedMore(true);}}><option value="">{t.allGenres}</option>{activeGenres.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select><ChevronDown size={17}/></div>}</div>
  {tab.startsWith('section:')&&<button className="back" onClick={()=>nav('home')}>{rtl?<ArrowRight size={18}/>:<ArrowLeft size={18}/>} {t.backHome}</button>}
- {tab==='list'&&!query.trim()&&history.length>0&&shelf(t.continue,history,'','continue')}
+ {tab==='list'&&!query.trim()&&libraryReady&&history.length>0&&shelf(t.continue,history,'','continue')}
  <div className="poster-grid">{(tab.startsWith('section:')?feedItems:[...results,...(!query.trim()&&tab!=='list'?feedItems:[])]).filter(x=>x&&x.poster_path).map(tile)}</div>
  {searchLoading&&<p className="loading">{t.loading}</p>}
  {searchError&&<p className="error" role="alert">{searchError}</p>}
@@ -262,7 +294,7 @@ export default function Page(){
  {category(selected)==='tv'&&<div className="season-area"><div className="results-head"><h2>{t.episodes}</h2><div className="genre-select"><select value={season} onChange={e=>{setSeason(Number(e.target.value));setEpisode(null);}}>{(detail?.seasons||[]).filter(s=>s.season_number>0).map(s=><option key={s.id} value={s.season_number}>{s.name}</option>)}</select><ChevronDown size={16}/></div></div><div className="episode-list">{(seasonData?.episodes||[]).map(ep=><button className="episode-card" key={ep.id} onClick={()=>play(selected,season,ep.episode_number)}>{ep.still_path?<img loading="lazy" src={poster(ep.still_path,'w300')} alt=""/>:<div className="still-placeholder"><Tv/></div>}<div><h3>{ep.episode_number}. {ep.name}</h3><p>{ep.overview?.slice(0,180)||t.noOverview}</p><small>{ep.runtime?ep.runtime+' min':''}</small></div><Play size={20}/></button>)}</div></div>}
  {episode&&<div className="player-shade" role="dialog" aria-modal="true" aria-label={t.watch}><div className="player-box"><div className="player-header"><strong>{title(selected)} {episode.type==='tv'?' · S'+episode.season+' E'+episode.number:''}</strong><button onClick={()=>{setEpisode(null);if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});}} aria-label={t.close}><X size={23}/></button></div><div className="video-wrap"><iframe key={episode.type+episode.id+episode.season+episode.number} src={(episode.type==='movie'?'https://urplayer.net/embed/movie/'+episode.id:'https://urplayer.net/embed/tv/'+episode.id+'/'+episode.season+'/'+episode.number)+'?autoplay=1'} title="URPlayer" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen sandbox="allow-scripts allow-same-origin allow-forms allow-presentation" referrerPolicy="no-referrer"/></div><p>{t.playerNotice}</p></div></div>}
  </section>}
- {accountOpen&&<AccountPanel language={language} session={session} onClose={()=>setAccountOpen(false)}/>}
+ {accountOpen&&<AccountPanel language={language} session={session} profiles={profiles} activeProfile={profiles.find(p=>p.id===activeProfileId)} onSelectProfile={id=>{setActiveProfileId(id);setSelected(null);setEpisode(null);}} onCreateProfile={addProfile} onClose={()=>setAccountOpen(false)}/>}
  <footer><span>{t.tmdb}</span><a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer">TMDB</a><span> · </span><a href="https://urplayer.net" target="_blank" rel="noopener noreferrer">URPlayer</a></footer>
  </main>;
 }
