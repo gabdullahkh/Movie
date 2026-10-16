@@ -36,3 +36,6 @@ html:fullscreen .player-box>p{margin:4px 12px 10px}
 .shelf-heading{display:inline-flex;align-items:center;gap:10px;color:inherit;background:none;border:0;padding:0;text-align:inherit;font-size:inherit;font-weight:inherit;cursor:pointer}
 .shelf-heading:hover{color:#f1b2b6}
 .shelf-heading span{color:#e50914;font-size:27px;line-height:.75}
+
+.resume-tile{position:relative}
+.resume-label{position:absolute;bottom:0;left:0;right:0;padding:28px 8px 10px;background:linear-gradient(transparent,rgba(0,0,0,.96));color:#fff;font-weight:700;font-size:12px;display:flex;justify-content:space-between;align-items:center;gap:5px}
