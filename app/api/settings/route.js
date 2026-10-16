@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://wdezottacdblvhmzbizu.supabase.co';
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_jYOyGLt3_auoqrFvMT62vA_TSq0QNEe';
     if (!url || !key) {
         return NextResponse.json({ configured: false, settings: {} });
     }
