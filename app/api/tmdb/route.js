@@ -8,7 +8,7 @@ export async function GET(request) {
   let path=p.get('path')||'trending/all/week';
   if (!ALLOWED.has(path) && !/^(movie|tv)\/\d{1,10}$/.test(path) && !/^tv\/\d{1,10}\/season\/\d{1,3}$/.test(path)) return NextResponse.json({error:'Invalid path'}, {status:400});
   const url = new URL('https://api.themoviedb.org/3/'+path);
-  for (const key of ['language','page','query','with_genres','sort_by','include_adult']) {
+  for (const key of ['language','page','query','with_genres','sort_by','include_adult','with_watch_providers','watch_region','with_watch_monetization_types','primary_release_date.gte','first_air_date.gte']) {
     const v=p.get(key);
     if(v) url.searchParams.set(key, v.slice(0,key==='query'?150:40));
   }
