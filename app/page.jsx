@@ -195,7 +195,7 @@ export default function Page(){
  {tab==='list'&&!query.trim()&&history.length>0&&shelf(t.continue,history)}
  <div className="poster-grid">{[...results,...(!query.trim()&&tab!=='list'?feedItems:[])].filter(x=>x.poster_path).map(tile)}</div>
  {feedLoading&&<p className="loading">{t.loading}</p>}
- {!query.trim()&&tab!=='list'&&<div ref={scrollAnchor} className="scroll-anchor" aria-hidden="true"/>
+ {!query.trim()&&tab!=='list'&&<div ref={scrollAnchor} className="scroll-anchor" aria-hidden="true"/>}
  {!results.length&&!busy&&<p className="empty">{tab==='list'&&!query.trim()?t.emptyList:t.noResults}</p>}
  
  </section>}
