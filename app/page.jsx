@@ -27,7 +27,7 @@ const sections={
 export default function Page(){
  const [language,setLanguage]=useState('en');
  const t=labels[language],rtl=language==='ar';
- const [tab,setTab]=useState('home'),[query,setQuery]=useState(''),[searchResults,setSearchResults]=useState([]);
+ const [tab,setTab]=useState('home'),[query,setQuery]=useState(''),[searchResults,setSearchResults]=useState([]),[searchLoading,setSearchLoading]=useState(false),[searchError,setSearchError]=useState('');
  const [rows,setRows]=useState({}),[genres,setGenres]=useState({movie:[],tv:[]}),[genre,setGenre]=useState('');
  const [selected,setSelected]=useState(null),[detail,setDetail]=useState(null),[season,setSeason]=useState(1),[seasonData,setSeasonData]=useState(null),[episode,setEpisode]=useState(null);
  const [watchlist,setWatchlist]=useState([]),[history,setHistory]=useState([]),[siteSettings,setSiteSettings]=useState({}),[busy,setBusy]=useState(true),[error,setError]=useState(''),[page,setPage]=useState(1);
@@ -98,7 +98,21 @@ export default function Page(){
      return [name,items.sort((a,b)=>((b.release_date||b.first_air_date||'').localeCompare(a.release_date||a.first_air_date||'')))];
    }catch{return[name,[]];}
  })]).then(out=>{if(!alive)return;const o=Object.fromEntries(out);setRows(o);setGenres({movie:o.genre_movie,tv:o.genre_tv});setBusy(false);}).catch(e=>{if(alive){setError(e.message);setBusy(false);}});return()=>{alive=false;};},[api]);
- useEffect(()=>{if(!query.trim()){setSearchResults([]);return;}let active=true;const timer=setTimeout(()=>{api('search/multi',{query}).then(data=>{if(active)setSearchResults((data.results||[]).filter(v=>v.media_type==='movie'||v.media_type==='tv'));}).catch(()=>{if(active)setSearchResults([]);});},320);return()=>{active=false;clearTimeout(timer);};},[query,api]);
+ useEffect(()=>{
+   const text=query.trim();
+   if(!text){setSearchResults([]);setSearchLoading(false);setSearchError('');return;}
+   let active=true;
+   setSearchLoading(true);
+   setSearchError('');
+   setSearchResults([]);
+   const timer=setTimeout(()=>{
+     api('search/multi',{query:text}).then(data=>{
+       if(active)setSearchResults(Array.isArray(data.results)?data.results.filter(v=>v&&(v.media_type==='movie'||v.media_type==='tv')):[]);
+     }).catch(err=>{if(active){setSearchError(err.message||'Search failed');setSearchResults([]);}})
+       .finally(()=>{if(active)setSearchLoading(false);});
+   },250);
+   return()=>{active=false;clearTimeout(timer);};
+ },[query,api]);
  useEffect(()=>{if(!selected){setDetail(null);return;}let active=true;setDetail(null);setEpisode(null);setSeasonData(null);api(category(selected)+'/'+selected.id).then(d=>{if(active){setDetail(d);const first=d.seasons?.find(s=>s.season_number>0);setSeason(first?.season_number??1);}}).catch(()=>{});return()=>{active=false;};},[selected,api]);
  useEffect(()=>{if(!detail||category(detail)!=='tv')return;let active=true;api('tv/'+detail.id+'/season/'+season).then(d=>{if(active)setSeasonData(d);}).catch(()=>{if(active)setSeasonData(null);});return()=>{active=false;};},[detail,season,api]);
  useEffect(()=>{
@@ -210,7 +224,7 @@ export default function Page(){
  <header className="topbar"><button className="brand" onClick={()=>nav('home')}>MOVIE<span>.</span></button><nav className="main-nav"><button className={tab==='home'?'active':''} onClick={()=>nav('home')}>{t.home}</button><button className={tab==='movie'?'active':''} onClick={()=>nav('movie')}>{t.movies}</button><button className={tab==='tv'?'active':''} onClick={()=>nav('tv')}>{t.tv}</button><button className={tab==='list'?'active':''} onClick={()=>nav('list')}>{t.myList}</button></nav><div className="nav-actions"><div className="searchbox"><Search size={17}/><input aria-label={t.search} value={query} onChange={e=>{setQuery(e.target.value);setSelected(null);}} placeholder={t.search}/>{query&&<button aria-label={t.close} onClick={()=>setQuery('')}><X size={16}/></button>}</div><button className="account-button" onClick={()=>setAccountOpen(true)}>{session?.user?.email?session.user.email.split('@')[0]:t.account}</button><button className="language" onClick={()=>setLanguage(x=>x==='en'?'ar':'en')} aria-label="Change language"><Globe2 size={18}/><span>{language==='en'?'العربية':'English'}</span></button></div></header>
  {error&&<div className="error">{t.unavailable} <small>{error}</small></div>}
  {appIssue&&<div className="error" role="alert">{appIssue}</div>}
- {busy&&<p className="loading">{t.loading}</p>}
+ {busy&&!query.trim()&&<p className="loading">{t.loading}</p>}
  {!busy&&!selected&&!query.trim()&&tab==='home'&&<>
  {hero&&<section className="hero" style={{backgroundImage:'linear-gradient(90deg,rgba(8,9,13,.96),rgba(8,9,13,.45) 60%,rgba(8,9,13,.25)),linear-gradient(0deg,#08090d,transparent 35%),url('+poster(hero.backdrop_path,'original')+')'}}><div className="hero-content"><span className="eyebrow">{t.trending}</span><h1>{title(hero)}</h1><p>{hero.overview?.slice(0,230)}{hero.overview?.length>230?'…':''}</p><div className="hero-buttons"><button className="primary" onClick={()=>{open(hero);if(category(hero)==='movie')play(hero);}}><Play size={19} fill="currentColor"/>{t.watch}</button><button className="secondary" onClick={()=>open(hero)}>{t.details}</button></div></div></section>}
  <div className="content home-rows">
@@ -235,9 +249,11 @@ export default function Page(){
  {tab.startsWith('section:')&&<button className="back" onClick={()=>nav('home')}>{rtl?<ArrowRight size={18}/>:<ArrowLeft size={18}/>} {t.backHome}</button>}
  {tab==='list'&&!query.trim()&&history.length>0&&shelf(t.continue,history,'','continue')}
  <div className="poster-grid">{(tab.startsWith('section:')?feedItems:[...results,...(!query.trim()&&tab!=='list'?feedItems:[])]).filter(x=>x&&x.poster_path).map(tile)}</div>
- {feedLoading&&<p className="loading">{t.loading}</p>}
+ {searchLoading&&<p className="loading">{t.loading}</p>}
+ {searchError&&<p className="error" role="alert">{searchError}</p>}
+ {!query.trim()&&feedLoading&&<p className="loading">{t.loading}</p>}
  {!query.trim()&&tab!=='list'&&<div ref={scrollAnchor} className="scroll-anchor" aria-hidden="true"/>}
- {!(tab.startsWith('section:')?feedItems.length:results.length+feedItems.length)&&!busy&&!feedLoading&&<p className="empty">{tab==='list'&&!query.trim()?t.emptyList:t.noResults}</p>}
+ {!(tab.startsWith('section:')?feedItems.length:results.length+feedItems.length)&&!busy&&!feedLoading&&!searchLoading&&!searchError&&<p className="empty">{tab==='list'&&!query.trim()?t.emptyList:t.noResults}</p>}
  
  </section>}
  {selected&&<section className="detail-page"><button className="back" onClick={()=>{setSelected(null);setEpisode(null);}}>{rtl?<ArrowRight size={18}/>:<ArrowLeft size={18}/>} {t.back}</button>
