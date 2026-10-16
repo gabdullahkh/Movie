@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createPlaybackUrl } from '../../../lib/source-lab-playback';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -62,6 +63,9 @@ export async function GET(request) {
     for (let i = 0; i < selected.length; i += 4) {
         result.push(...await Promise.all(selected.slice(i, i + 4).map(name => runProvider(name, context))));
     }
-    const streams = result.flatMap(item => item.streams);
+    const streams = result.flatMap(item => item.streams).map(stream => ({
+        ...stream,
+        playbackUrl: typeof stream.url === 'string' ? createPlaybackUrl(stream.url, stream.headers || {}) : null
+    }));
     return json({ streams, checked: selected.length, errors: result.filter(x => x.error).map(x => ({ provider: x.name, error: x.error })) });
 }
