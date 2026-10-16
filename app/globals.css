@@ -32,3 +32,7 @@ html:fullscreen .player-box{width:100vw;max-width:none;height:100vh;border:0;bor
 html:fullscreen .player-header{flex:none;padding:9px 18px}
 html:fullscreen .video-wrap{flex:1;min-height:0;aspect-ratio:auto}
 html:fullscreen .player-box>p{margin:4px 12px 10px}
+
+.shelf-heading{display:inline-flex;align-items:center;gap:10px;color:inherit;background:none;border:0;padding:0;text-align:inherit;font-size:inherit;font-weight:inherit;cursor:pointer}
+.shelf-heading:hover{color:#f1b2b6}
+.shelf-heading span{color:#e50914;font-size:27px;line-height:.75}
