@@ -53,3 +53,11 @@ html:fullscreen .player-box>p{margin:4px 12px 10px}
 
 .search-type-label{position:absolute;top:9px;left:9px;z-index:2;padding:5px 9px;background:rgba(10,12,18,.92);border:1px solid rgba(255,255,255,.25);border-radius:5px;color:white;font-size:11px;font-weight:800;letter-spacing:.25px;pointer-events:none}
 html[dir="rtl"] .search-type-label{left:auto;right:9px}
+
+.profile-entry{display:flex;align-items:center;gap:6px;max-width:100%;flex-wrap:wrap}
+.profile-edit{border:1px solid #454852;border-radius:7px;background:#22242b;color:#dedee3;padding:9px 11px;font-size:12px}
+.profile-edit:hover{background:#373941}
+.profile-rename{display:flex;align-items:center;gap:6px;flex-wrap:wrap;max-width:100%}
+.profile-rename input{min-width:120px;max-width:190px;flex:1;border-radius:7px;border:1px solid #666;background:#111218;color:white;padding:10px}
+.profile-rename button{border:1px solid #52545e;background:#2b2d35;color:white;padding:9px 11px;border-radius:7px}
+.profile-rename button[type="submit"]{background:#e50914;border-color:#e50914}
