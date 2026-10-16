@@ -39,3 +39,14 @@ html:fullscreen .player-box>p{margin:4px 12px 10px}
 
 .resume-tile{position:relative}
 .resume-label{position:absolute;bottom:0;left:0;right:0;padding:28px 8px 10px;background:linear-gradient(transparent,rgba(0,0,0,.96));color:#fff;font-weight:700;font-size:12px;display:flex;justify-content:space-between;align-items:center;gap:5px}
+
+.profile-list{display:flex;flex-wrap:wrap;gap:9px;margin:12px 0}
+.profile-choice{color:#fff;background:#292b33;border:1px solid #4b4d55;border-radius:8px;padding:10px 13px;min-width:80px}
+.profile-choice.chosen{border-color:#e50914;background:#45191d}
+.profile-create{display:flex;gap:8px;margin:12px 0}
+.profile-create input{flex:1;min-width:0;border-radius:7px;border:1px solid #50505c;background:#111218;color:white;padding:10px}
+.profile-create button{border:0;border-radius:7px;background:#e50914;color:white;font-weight:700;padding:9px 13px}
+.player-tools{display:flex;align-items:center;gap:13px}
+.player-tools .next-episode{display:inline-flex;gap:8px;align-items:center;border:1px solid #5d5d65;border-radius:6px;color:white;background:#24262e;padding:8px 13px;font-size:13px}
+.player-tools .next-episode:hover{background:#383a43}
+@media(max-width:540px){.player-tools .next-episode{font-size:11px;padding:7px}}
