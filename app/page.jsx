@@ -263,9 +263,10 @@ export default function Page(){
  const activeGenres=tab.startsWith('section:')?[...new Map([...(genres.movie||[]),...(genres.tv||[])].map(g=>[g.id,g])).values()].sort((a,b)=>a.name.localeCompare(b.name)):(genres[tab]||[]);
  const lastPlayed=selected?(history.find(item=>item&&keyOf(item)===keyOf(selected))||(resumeRef.current&&keyOf(resumeRef.current)===keyOf(selected)?resumeRef.current:null)):null;
  const title=(item)=>rtl?(item.title||item.name):(item.title||item.name);
- function tile(item,index){return <button className="tile" key={item.id+'-'+index} onClick={()=>open(item)} aria-label={title(item)}>
+ function tile(item,index){return <button className="tile" key={item.id+'-'+index} onClick={()=>open(item)} aria-label={title(item)+(query.trim()?' — '+(category(item)==='tv'?t.tv:t.movies):'')}>
   {poster(item.poster_path)?<img loading="lazy" src={poster(item.poster_path)} alt="" />:<div className="no-poster">{title(item)}</div>}
-  <div className="tile-overlay"><strong>{title(item)}</strong><span>★ {item.vote_average?.toFixed?.(1)||'–'} · {(item.release_date||item.first_air_date||'').slice(0,4)}</span></div>
+  {query.trim()&&<span className="search-type-label">{category(item)==='tv'?(rtl?'مسلسل':'TV Show'):(rtl?'فيلم':'Movie')}</span>}
+   <div className="tile-overlay"><strong>{title(item)}</strong><span>★ {item.vote_average?.toFixed?.(1)||'–'} · {(item.release_date||item.first_air_date||'').slice(0,4)}</span></div>
  </button>;}
  function shelf(label,items,id='',sectionKey=''){if(!items?.length)return null;const isContinue=sectionKey==='continue';return <section id={id} className="shelf"><h2>{isContinue?label:<button className="shelf-heading" onClick={()=>nav('section:'+(sectionKey||id.replace('row-','')))}>{label} <span aria-hidden="true">›</span></button>}</h2><div className="strip">{items.filter(i=>i&&i.poster_path).slice(0,18).map((item,i)=>isContinue?<button className="tile resume-tile" key={'resume-'+keyOf(item)} onClick={()=>{setEpisode(null);open(item);}} aria-label={(item.title||item.name||'')+' — '+t.details}><img loading="lazy" src={poster(item.poster_path)} alt=""/><span className="resume-label">{category(item)==='tv'?('S'+(item.season||1)+' · E'+(item.episode||1)):(rtl?'متابعة الفيلم':'Continue movie')} <ArrowRight size={15}/></span></button>:tile(item,i))}</div></section>;}
  const pinned=[...(siteSettings.homepage?.featured_movie_ids||[]),...(siteSettings.homepage?.featured_tv_ids||[])];
