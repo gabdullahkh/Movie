@@ -8,8 +8,8 @@ const IMAGE='https://image.tmdb.org/t/p/';
 const poster=(path,size='w500')=>path?IMAGE+size+path:null;
 const category=(x)=>x.media_type==='tv'||(!x.media_type && (x.first_air_date!==undefined || x.name!==undefined))?'tv':'movie';
 const labels={
- en:{home:'Home',movies:'Movies',tv:'TV Shows',myList:'My List',search:'Search movies and TV shows',trending:'Trending this week',popularMovies:'Popular movies',popularShows:'Popular TV shows',topMovies:'Top rated movies',topShows:'Top rated TV shows',netflix:'Latest on Netflix',prime:'Latest on Prime Video',disney:'Latest on Disney+',account:'Account',onAir:'Currently airing',nowPlaying:'Now playing',watch:'Watch Now',details:'More Info',add:'My List',remove:'Remove from list',seasons:'Seasons',episodes:'Episodes',episode:'Episode',continue:'Continue watching',back:'Back',allGenres:'All Genres',noResults:'No titles found.',emptyList:'Your list is empty. Add movies or shows to save them here.',loading:'Loading...',rating:'Rating',overview:'Overview',noOverview:'No description available.',unavailable:'Unable to load titles. Check TMDB API configuration.',playerNotice:'Playback is provided by a third-party website. Ads and external redirects are outside our control.',tmdb:'This product uses the TMDB API but is not endorsed or certified by TMDB.',close:'Close',searchResults:'Search results',browse:'Browse',selectEpisode:'Select an episode',more:'Show more',backHome:'Back to home'},
- ar:{home:'الرئيسية',movies:'أفلام',tv:'مسلسلات',myList:'قائمتي',search:'ابحث عن أفلام ومسلسلات',trending:'الرائج هذا الأسبوع',popularMovies:'أفلام شائعة',popularShows:'مسلسلات شائعة',topMovies:'أعلى الأفلام تقييماً',topShows:'أعلى المسلسلات تقييماً',netflix:'الأحدث على نتفليكس',prime:'الأحدث على برايم فيديو',disney:'الأحدث على ديزني+',account:'الحساب',onAir:'يعرض الآن',nowPlaying:'في السينما',watch:'شاهد الآن',details:'المزيد من التفاصيل',add:'إضافة إلى قائمتي',remove:'إزالة من قائمتي',seasons:'المواسم',episodes:'الحلقات',episode:'الحلقة',continue:'متابعة المشاهدة',back:'رجوع',allGenres:'كل الأنواع',noResults:'لا توجد نتائج.',emptyList:'قائمتك فارغة. أضف أفلاماً أو مسلسلات لحفظها هنا.',loading:'جاري التحميل...',rating:'التقييم',overview:'القصة',noOverview:'لا يوجد وصف متوفر.',unavailable:'تعذر تحميل البيانات. تحقق من إعدادات TMDB.',playerNotice:'المشاهدة عبر مشغل خارجي. الإعلانات والتحويلات خارج تحكمنا.',tmdb:'هذا المنتج يستخدم واجهة TMDB لكنه غير معتمد أو مدعوم من TMDB.',close:'إغلاق',searchResults:'نتائج البحث',browse:'تصفح',selectEpisode:'اختر الحلقة',more:'عرض المزيد',backHome:'العودة للرئيسية'}
+ en:{home:'Home',movies:'Movies',tv:'TV Shows',myList:'My List',search:'Search movies and TV shows',trending:'Trending this week',popularMovies:'Popular movies',popularShows:'Popular TV shows',topMovies:'Top rated movies',topShows:'Top rated TV shows',netflix:'Latest on Netflix',prime:'Latest on Prime Video',account:'Account',onAir:'Currently airing',nowPlaying:'Now playing',watch:'Watch Now',details:'More Info',add:'My List',remove:'Remove from list',seasons:'Seasons',episodes:'Episodes',episode:'Episode',continue:'Continue watching',back:'Back',allGenres:'All Genres',noResults:'No titles found.',emptyList:'Your list is empty. Add movies or shows to save them here.',loading:'Loading...',rating:'Rating',overview:'Overview',noOverview:'No description available.',unavailable:'Unable to load titles. Check TMDB API configuration.',playerNotice:'Playback is provided by a third-party website. Ads and external redirects are outside our control.',tmdb:'This product uses the TMDB API but is not endorsed or certified by TMDB.',close:'Close',searchResults:'Search results',browse:'Browse',selectEpisode:'Select an episode',more:'Show more',backHome:'Back to home'},
+ ar:{home:'الرئيسية',movies:'أفلام',tv:'مسلسلات',myList:'قائمتي',search:'ابحث عن أفلام ومسلسلات',trending:'الرائج هذا الأسبوع',popularMovies:'أفلام شائعة',popularShows:'مسلسلات شائعة',topMovies:'أعلى الأفلام تقييماً',topShows:'أعلى المسلسلات تقييماً',netflix:'الأحدث على نتفليكس',prime:'الأحدث على برايم فيديو',account:'الحساب',onAir:'يعرض الآن',nowPlaying:'في السينما',watch:'شاهد الآن',details:'المزيد من التفاصيل',add:'إضافة إلى قائمتي',remove:'إزالة من قائمتي',seasons:'المواسم',episodes:'الحلقات',episode:'الحلقة',continue:'متابعة المشاهدة',back:'رجوع',allGenres:'كل الأنواع',noResults:'لا توجد نتائج.',emptyList:'قائمتك فارغة. أضف أفلاماً أو مسلسلات لحفظها هنا.',loading:'جاري التحميل...',rating:'التقييم',overview:'القصة',noOverview:'لا يوجد وصف متوفر.',unavailable:'تعذر تحميل البيانات. تحقق من إعدادات TMDB.',playerNotice:'المشاهدة عبر مشغل خارجي. الإعلانات والتحويلات خارج تحكمنا.',tmdb:'هذا المنتج يستخدم واجهة TMDB لكنه غير معتمد أو مدعوم من TMDB.',close:'إغلاق',searchResults:'نتائج البحث',browse:'تصفح',selectEpisode:'اختر الحلقة',more:'عرض المزيد',backHome:'العودة للرئيسية'}
 };
 function readStorage(key,fallback){try{const d=localStorage.getItem(key);if(!d)return fallback;const parsed=JSON.parse(d);return Array.isArray(fallback)?(Array.isArray(parsed)?parsed:fallback):parsed;}catch{return fallback;}}
 const keyOf=(item)=>item&&typeof item==='object'?category(item)+':'+item.id:'invalid';
@@ -17,7 +17,6 @@ const sections={
  trending:{path:'trending/all/week'},
  netflix:{provider:8},
  prime:{provider:119},
- disney:{provider:337},
  movies:{path:'movie/popular',type:'movie'},
  shows:{path:'tv/popular',type:'tv'},
  topMovies:{path:'movie/top_rated',type:'movie'},
@@ -77,7 +76,7 @@ export default function Page(){
    return()=>{active=false;};
  },[session?.user?.id,authLoaded]);
  useEffect(()=>{let alive=true;setBusy(true);setError('');const endpoints={trending:'trending/all/week',movies:'movie/popular',shows:'tv/popular',topMovies:'movie/top_rated',topShows:'tv/top_rated',now:'movie/now_playing',air:'tv/on_the_air'};
- const providers={netflix:8,prime:119,disney:337};
+ const providers={netflix:8,prime:119};
  const since=new Date(Date.now()-540*86400000).toISOString().slice(0,10);
  const today=new Date().toISOString().slice(0,10);
  Promise.all([...Object.entries(endpoints).map(async ([key,path])=>[key,(await api(path)).results||[]]),...['movie','tv'].map(async type=>['genre_'+type,(await api('genre/'+type+'/list')).genres||[]]),
@@ -198,13 +197,12 @@ export default function Page(){
  {hero&&<section className="hero" style={{backgroundImage:'linear-gradient(90deg,rgba(8,9,13,.96),rgba(8,9,13,.45) 60%,rgba(8,9,13,.25)),linear-gradient(0deg,#08090d,transparent 35%),url('+poster(hero.backdrop_path,'original')+')'}}><div className="hero-content"><span className="eyebrow">{t.trending}</span><h1>{title(hero)}</h1><p>{hero.overview?.slice(0,230)}{hero.overview?.length>230?'…':''}</p><div className="hero-buttons"><button className="primary" onClick={()=>{open(hero);if(category(hero)==='movie')play(hero);}}><Play size={19} fill="currentColor"/>{t.watch}</button><button className="secondary" onClick={()=>open(hero)}>{t.details}</button></div></div></section>}
  <div className="content home-rows">
  <div className="quick-categories">
-   {[['all',t.trending],['netflix',t.netflix],['prime',t.prime],['disney',t.disney]].map(([id,label])=><button key={id} onClick={()=>document.getElementById('row-'+id)?.scrollIntoView({behavior:'smooth',block:'start'})}>{label}</button>)}
+   {[['all',t.trending],['netflix',t.netflix],['prime',t.prime]].map(([id,label])=><button key={id} onClick={()=>document.getElementById('row-'+id)?.scrollIntoView({behavior:'smooth',block:'start'})}>{label}</button>)}
  </div>
  {history.length>0&&shelf(t.continue,history)}
  {shelf(t.trending,rows.trending,'row-all','trending')}
  {shelf(t.netflix,rows.netflix,'row-netflix','netflix')}
  {shelf(t.prime,rows.prime,'row-prime','prime')}
- {shelf(t.disney,rows.disney,'row-disney','disney')}
  {shelf(t.popularMovies,rows.movies,'','movies')}
  {shelf(t.popularShows,rows.shows,'','shows')}
  {shelf(t.topMovies,rows.topMovies,'','topMovies')}
@@ -215,7 +213,7 @@ export default function Page(){
  {feedLoading&&<p className="loading">{t.loading}</p>}
  <div ref={tab==='home'?scrollAnchor:null} className="scroll-anchor" aria-hidden="true"/>
  </div></>}
- {!selected&&(query.trim()||tab!=='home')&&<section className="content results-page"><div className="results-head"><h1>{query.trim()?t.searchResults:tab==='list'?t.myList:tab.startsWith('section:')?( {trending:t.trending,netflix:t.netflix,prime:t.prime,disney:t.disney,movies:t.popularMovies,shows:t.popularShows,topMovies:t.topMovies,topShows:t.topShows,now:t.nowPlaying,air:t.onAir}[tab.slice(8)]||t.browse):tab==='movie'?t.movies:t.tv}</h1>{!query.trim()&&(tab==='movie'||tab==='tv'||tab.startsWith('section:'))&&<div className="genre-select"><select value={genre} onChange={e=>{setGenre(e.target.value);setPage(1);setFeedItems([]);setFeedPage(1);setFeedMore(true);}}><option value="">{t.allGenres}</option>{activeGenres.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select><ChevronDown size={17}/></div>}</div>
+ {!selected&&(query.trim()||tab!=='home')&&<section className="content results-page"><div className="results-head"><h1>{query.trim()?t.searchResults:tab==='list'?t.myList:tab.startsWith('section:')?( {trending:t.trending,netflix:t.netflix,prime:t.prime,movies:t.popularMovies,shows:t.popularShows,topMovies:t.topMovies,topShows:t.topShows,now:t.nowPlaying,air:t.onAir}[tab.slice(8)]||t.browse):tab==='movie'?t.movies:t.tv}</h1>{!query.trim()&&(tab==='movie'||tab==='tv'||tab.startsWith('section:'))&&<div className="genre-select"><select value={genre} onChange={e=>{setGenre(e.target.value);setPage(1);setFeedItems([]);setFeedPage(1);setFeedMore(true);}}><option value="">{t.allGenres}</option>{activeGenres.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select><ChevronDown size={17}/></div>}</div>
  {tab.startsWith('section:')&&<button className="back" onClick={()=>nav('home')}>{rtl?<ArrowRight size={18}/>:<ArrowLeft size={18}/>} {t.backHome}</button>}
  {tab==='list'&&!query.trim()&&history.length>0&&shelf(t.continue,history)}
  <div className="poster-grid">{(tab.startsWith('section:')?feedItems:[...results,...(!query.trim()&&tab!=='list'?feedItems:[])]).filter(x=>x&&x.poster_path).map(tile)}</div>
