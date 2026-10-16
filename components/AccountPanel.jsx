@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
-export default function AccountPanel({ session, onClose, language, profiles = [], activeProfile, onSelectProfile, onCreateProfile, onRenameProfile }) {
+export default function AccountPanel({ session, onClose, language, profiles = [], activeProfile, onSelectProfile, onCreateProfile, onRenameProfile, onDeleteProfile }) {
     const ar = language === 'ar';
     const [mode, setMode] = useState('login');
     const [email, setEmail] = useState('');
@@ -11,6 +11,7 @@ export default function AccountPanel({ session, onClose, language, profiles = []
     const [profileName, setProfileName] = useState('');
     const [editingId, setEditingId] = useState(null);
     const [editingName, setEditingName] = useState('');
+    const [deletingId, setDeletingId] = useState(null);
     async function submit(e) {
         e.preventDefault();
         setBusy(true);
@@ -44,8 +45,14 @@ export default function AccountPanel({ session, onClose, language, profiles = []
                     : <>
                         <button type="button" onClick={() => { onSelectProfile(profile.id); onClose(); }} className={'profile-choice '+(activeProfile?.id===profile.id?'chosen':'')}>{profile.name} {activeProfile?.id===profile.id?'✓':''}</button>
                         <button type="button" className="profile-edit" aria-label={(ar?'تعديل اسم ':'Edit name of ')+profile.name} onClick={()=>{setEditingId(profile.id);setEditingName(profile.name);setMessage('');}}>{ar?'تعديل':'Edit'}</button>
+                        <button type="button" className="profile-delete" disabled={busy||profiles.length<=1} onClick={()=>{setDeletingId(profile.id);setMessage('');}} aria-label={(ar?'حذف ':'Delete ')+profile.name}>{ar?'حذف':'Delete'}</button>
                       </>}
                     </div>)}</div>
+                {deletingId&&<div className="profile-confirm" role="alertdialog" aria-label={ar?'تأكيد الحذف':'Confirm deletion'}>
+                    <p>{ar?'هل تريد حذف الملف وكل سجلات المشاهدة والقائمة الخاصة به نهائياً؟':'Delete this profile and its saved watchlist and history permanently?'}</p>
+                    <button type="button" disabled={busy} onClick={async()=>{setBusy(true);setMessage('');try{await onDeleteProfile(deletingId);setDeletingId(null);}catch(err){setMessage(err.message||'Could not delete profile');}finally{setBusy(false);}}}>{ar?'نعم، حذف':'Delete profile'}</button>
+                    <button type="button" disabled={busy} onClick={()=>setDeletingId(null)}>{ar?'إلغاء':'Cancel'}</button>
+                </div>}
                 <form className="profile-create" onSubmit={async e => { e.preventDefault(); if(!profileName.trim())return;setBusy(true);setMessage('');try{await onCreateProfile(profileName.trim());setProfileName('');}catch(err){setMessage(err.message||'Could not create profile');}finally{setBusy(false);}}}>
                     <input maxLength={30} placeholder={ar?'اسم الملف الجديد':'New profile name'} value={profileName} onChange={e=>setProfileName(e.target.value)} required/>
                     <button disabled={busy||profiles.length>=8} type="submit">{ar?'إضافة':'Add profile'}</button>
