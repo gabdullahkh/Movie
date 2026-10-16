@@ -20,3 +20,8 @@
 .quick-categories button{white-space:nowrap;border:1px solid #373941;background:#191b21;border-radius:7px;color:#f4f4f4;padding:11px 17px;font-size:13px}
 .quick-categories button:hover{background:#30333b;border-color:#676a75}
 .shelf{scroll-margin-top:95px}
+
+.scroll-anchor{height:2px;width:100%;scroll-margin-top:150px}
+.discover-feed{margin-top:40px}
+.discover-feed .poster-grid{grid-template-columns:repeat(auto-fill,minmax(135px,1fr))}
+@media(max-width:540px){.discover-feed .poster-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
