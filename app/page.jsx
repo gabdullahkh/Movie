@@ -101,14 +101,13 @@ export default function Page(){
  useEffect(()=>{if(!query.trim()){setSearchResults([]);return;}let active=true;const timer=setTimeout(()=>{api('search/multi',{query}).then(data=>{if(active)setSearchResults((data.results||[]).filter(v=>v.media_type==='movie'||v.media_type==='tv'));}).catch(()=>{if(active)setSearchResults([]);});},320);return()=>{active=false;clearTimeout(timer);};},[query,api]);
  useEffect(()=>{if(!selected){setDetail(null);return;}let active=true;setDetail(null);setEpisode(null);setSeasonData(null);api(category(selected)+'/'+selected.id).then(d=>{if(active){setDetail(d);const first=d.seasons?.find(s=>s.season_number>0);setSeason(first?.season_number??1);}}).catch(()=>{});return()=>{active=false;};},[selected,api]);
  useEffect(()=>{if(!detail||category(detail)!=='tv')return;let active=true;api('tv/'+detail.id+'/season/'+season).then(d=>{if(active)setSeasonData(d);}).catch(()=>{if(active)setSeasonData(null);});return()=>{active=false;};},[detail,season,api]);
- useEffect(()=>{if(!genre||tab==='home'||tab==='list'||tab==='search')return;let active=true;api('discover/'+tab,{with_genres:genre,page:String(page),sort_by:'popularity.desc'}).then(d=>{if(active)setRows(old=>({...old,discovered:page===1?(d.results||[]):[...(old.discovered||[]),...(d.results||[])]}));}).catch(()=>{});return()=>{active=false;};},[genre,tab,page,api]);
  useEffect(()=>{
    setFeedItems([]);
    setFeedPage(1);
    setFeedMore(true);
  },[tab,genre,language,Boolean(query.trim())]);
  useEffect(()=>{
-   if((feedPage<=1&&!tab.startsWith('section:'))||query.trim()||tab==='list')return;
+   if((feedPage<=1&&!tab.startsWith('section:')&&!(genre&&(tab==='movie'||tab==='tv')))||query.trim()||tab==='list')return;
    let active=true;
    setFeedLoading(true);
    const params={page:String(feedPage),sort_by:'popularity.desc'};
@@ -118,11 +117,14 @@ export default function Page(){
      ?section.provider
        ?Promise.all(['movie','tv'].map(type=>api('discover/'+type,{
            page:String(feedPage),watch_region:'SA',
-           with_watch_providers:String(section.provider),with_watch_monetization_types:'flatrate',
+           with_watch_providers:String(section.provider),with_watch_monetization_types:'flatrate',...(genre?{with_genres:genre}:{}),
            sort_by:'popularity.desc'
          }).then(d=>(d.results||[]).map(x=>({...x,media_type:type})))))
          .then(groups=>groups.flat())
-       :api(section.path,{page:String(feedPage)}).then(d=>(d.results||[]).map(x=>({...x,media_type:section.type||x.media_type||category(x)})))
+       :genre
+         ?(section.type?api('discover/'+section.type,{...params,with_genres:genre} ).then(d=>(d.results||[]).map(x=>({...x,media_type:section.type}))):
+          Promise.all(['movie','tv'].map(type=>api('discover/'+type,{...params,with_genres:genre}).then(d=>(d.results||[]).map(x=>({...x,media_type:type}))))).then(groups=>groups.flat()))
+         :api(section.path,{page:String(feedPage)}).then(d=>(d.results||[]).map(x=>({...x,media_type:section.type||x.media_type||category(x)})))
      :tab==='home'
        ?Promise.all([api('discover/movie',params),api('discover/tv',params)]).then(([movies,shows])=>[
           ...(movies.results||[]).map(x=>({...x,media_type:'movie'})),
@@ -177,8 +179,8 @@ export default function Page(){
    setEpisode({type,id:item.id,season:s,number:e});
  }
  const nav=(next)=>{setTab(next);setQuery('');setGenre('');setPage(1);setSelected(null);setEpisode(null);window.scrollTo(0,0);};
- const results=query.trim()?searchResults:tab==='list'?watchlist:tab==='movie'?genre?rows.discovered:rows.movies:tab==='tv'?genre?rows.discovered:rows.shows:[];
- const activeGenres=genres[tab]||[];
+ const results=query.trim()?searchResults:tab==='list'?watchlist:tab==='movie'?(genre?[]:(rows.movies||[])):tab==='tv'?(genre?[]:(rows.shows||[])):[];
+ const activeGenres=tab.startsWith('section:')?[...new Map([...(genres.movie||[]),...(genres.tv||[])].map(g=>[g.id,g])).values()].sort((a,b)=>a.name.localeCompare(b.name)):(genres[tab]||[]);
  const title=(item)=>rtl?(item.title||item.name):(item.title||item.name);
  function tile(item,index){return <button className="tile" key={item.id+'-'+index} onClick={()=>open(item)} aria-label={title(item)}>
   {poster(item.poster_path)?<img loading="lazy" src={poster(item.poster_path)} alt="" />:<div className="no-poster">{title(item)}</div>}
@@ -213,13 +215,13 @@ export default function Page(){
  {feedLoading&&<p className="loading">{t.loading}</p>}
  <div ref={tab==='home'?scrollAnchor:null} className="scroll-anchor" aria-hidden="true"/>
  </div></>}
- {!selected&&(query.trim()||tab!=='home')&&<section className="content results-page"><div className="results-head"><h1>{query.trim()?t.searchResults:tab==='list'?t.myList:tab.startsWith('section:')?( {trending:t.trending,netflix:t.netflix,prime:t.prime,disney:t.disney,movies:t.popularMovies,shows:t.popularShows,topMovies:t.topMovies,topShows:t.topShows,now:t.nowPlaying,air:t.onAir}[tab.slice(8)]||t.browse):tab==='movie'?t.movies:t.tv}</h1>{!query.trim()&&(tab==='movie'||tab==='tv')&&<div className="genre-select"><select value={genre} onChange={e=>{setGenre(e.target.value);setPage(1);}}><option value="">{t.allGenres}</option>{activeGenres.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select><ChevronDown size={17}/></div>}</div>
+ {!selected&&(query.trim()||tab!=='home')&&<section className="content results-page"><div className="results-head"><h1>{query.trim()?t.searchResults:tab==='list'?t.myList:tab.startsWith('section:')?( {trending:t.trending,netflix:t.netflix,prime:t.prime,disney:t.disney,movies:t.popularMovies,shows:t.popularShows,topMovies:t.topMovies,topShows:t.topShows,now:t.nowPlaying,air:t.onAir}[tab.slice(8)]||t.browse):tab==='movie'?t.movies:t.tv}</h1>{!query.trim()&&(tab==='movie'||tab==='tv'||tab.startsWith('section:'))&&<div className="genre-select"><select value={genre} onChange={e=>{setGenre(e.target.value);setPage(1);setFeedItems([]);setFeedPage(1);setFeedMore(true);}}><option value="">{t.allGenres}</option>{activeGenres.map(g=><option key={g.id} value={g.id}>{g.name}</option>)}</select><ChevronDown size={17}/></div>}</div>
  {tab.startsWith('section:')&&<button className="back" onClick={()=>nav('home')}>{rtl?<ArrowRight size={18}/>:<ArrowLeft size={18}/>} {t.backHome}</button>}
  {tab==='list'&&!query.trim()&&history.length>0&&shelf(t.continue,history)}
- <div className="poster-grid">{(tab.startsWith('section:')?feedItems:[...results,...(!query.trim()&&tab!=='list'?feedItems:[])]).filter(x=>x.poster_path).map(tile)}</div>
+ <div className="poster-grid">{(tab.startsWith('section:')?feedItems:[...results,...(!query.trim()&&tab!=='list'?feedItems:[])]).filter(x=>x&&x.poster_path).map(tile)}</div>
  {feedLoading&&<p className="loading">{t.loading}</p>}
  {!query.trim()&&tab!=='list'&&<div ref={scrollAnchor} className="scroll-anchor" aria-hidden="true"/>}
- {!(tab.startsWith('section:')?feedItems.length:results.length)&&!busy&&!feedLoading&&<p className="empty">{tab==='list'&&!query.trim()?t.emptyList:t.noResults}</p>}
+ {!(tab.startsWith('section:')?feedItems.length:results.length+feedItems.length)&&!busy&&!feedLoading&&<p className="empty">{tab==='list'&&!query.trim()?t.emptyList:t.noResults}</p>}
  
  </section>}
  {selected&&<section className="detail-page"><button className="back" onClick={()=>{setSelected(null);setEpisode(null);}}>{rtl?<ArrowRight size={18}/>:<ArrowLeft size={18}/>} {t.back}</button>
