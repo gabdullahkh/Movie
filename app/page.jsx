@@ -99,7 +99,7 @@ export default function Page(){
    }catch{return[name,[]];}
  })]).then(out=>{if(!alive)return;const o=Object.fromEntries(out);setRows(o);setGenres({movie:o.genre_movie,tv:o.genre_tv});setBusy(false);}).catch(e=>{if(alive){setError(e.message);setBusy(false);}});return()=>{alive=false;};},[api]);
  useEffect(()=>{if(!query.trim()){setSearchResults([]);return;}let active=true;const timer=setTimeout(()=>{api('search/multi',{query}).then(data=>{if(active)setSearchResults((data.results||[]).filter(v=>v.media_type==='movie'||v.media_type==='tv'));}).catch(()=>{if(active)setSearchResults([]);});},320);return()=>{active=false;clearTimeout(timer);};},[query,api]);
- useEffect(()=>{if(!selected){setDetail(null);return;}let active=true;setDetail(null);setEpisode(null);setSeasonData(null);api(category(selected)+'/'+selected.id).then(d=>{if(active){setDetail(d);const first=d.seasons?.find(s=>s.season_number>0);setSeason(first?.season_number??1);if(resumeRef.current?.id===selected.id&&resumeRef.current.type===category(selected)){const resume=resumeRef.current;resumeRef.current=null;setSeason(resume.season);setEpisode({type:resume.type,id:resume.id,season:resume.season,number:resume.number});}}}).catch(()=>{});return()=>{active=false;};},[selected,api]);
+ useEffect(()=>{if(!selected){setDetail(null);return;}let active=true;setDetail(null);setEpisode(null);setSeasonData(null);api(category(selected)+'/'+selected.id).then(d=>{if(active){setDetail(d);const first=d.seasons?.find(s=>s.season_number>0);setSeason(first?.season_number??1);}}).catch(()=>{});return()=>{active=false;};},[selected,api]);
  useEffect(()=>{if(!detail||category(detail)!=='tv')return;let active=true;api('tv/'+detail.id+'/season/'+season).then(d=>{if(active)setSeasonData(d);}).catch(()=>{if(active)setSeasonData(null);});return()=>{active=false;};},[detail,season,api]);
  useEffect(()=>{
    setFeedItems([]);
@@ -160,7 +160,7 @@ export default function Page(){
      }
    }catch{}
  }
- function open(item){resumeRef.current=null;setSelected({...item,media_type:category(item)});window.scrollTo({top:0,behavior:'smooth'});}
+ function open(item){resumeRef.current=(item&&item.watchedAt)?item:null;setSelected({...item,media_type:category(item)});window.scrollTo({top:0,behavior:'smooth'});}
  function resumeWatching(item){
    if(!item||!item.id)return;
    const type=category(item);
@@ -189,7 +189,7 @@ export default function Page(){
  const nav=(next)=>{setTab(next);setQuery('');setGenre('');setPage(1);setSelected(null);setEpisode(null);window.scrollTo(0,0);};
  const results=query.trim()?searchResults:tab==='list'?watchlist:tab==='movie'?(genre?[]:(rows.movies||[])):tab==='tv'?(genre?[]:(rows.shows||[])):[];
  const activeGenres=tab.startsWith('section:')?[...new Map([...(genres.movie||[]),...(genres.tv||[])].map(g=>[g.id,g])).values()].sort((a,b)=>a.name.localeCompare(b.name)):(genres[tab]||[]);
- const lastPlayed=selected?history.find(item=>item&&keyOf(item)===keyOf(selected)):null;
+ const lastPlayed=selected?(history.find(item=>item&&keyOf(item)===keyOf(selected))||(resumeRef.current&&keyOf(resumeRef.current)===keyOf(selected)?resumeRef.current:null)):null;
  const title=(item)=>rtl?(item.title||item.name):(item.title||item.name);
  function tile(item,index){return <button className="tile" key={item.id+'-'+index} onClick={()=>open(item)} aria-label={title(item)}>
   {poster(item.poster_path)?<img loading="lazy" src={poster(item.poster_path)} alt="" />:<div className="no-poster">{title(item)}</div>}
