@@ -72,7 +72,15 @@ export default function Page(){
        api('discover/movie',{watch_region:'SA',with_watch_providers:String(id),with_watch_monetization_types:'flatrate',sort_by:'primary_release_date.desc','primary_release_date.gte':since,'primary_release_date.lte':today}),
        api('discover/tv',{watch_region:'SA',with_watch_providers:String(id),with_watch_monetization_types:'flatrate',sort_by:'first_air_date.desc','first_air_date.gte':since,'first_air_date.lte':today})
      ]);
-     return [name,[...(movies.results||[]).map(x=>({...x,media_type:'movie'})),...(shows.results||[]).map(x=>({...x,media_type:'tv'}))].sort((a,b)=>((b.release_date||b.first_air_date||'').localeCompare(a.release_date||a.first_air_date||'')))];
+     let items=[...(movies.results||[]).map(x=>({...x,media_type:'movie'})),...(shows.results||[]).map(x=>({...x,media_type:'tv'}))];
+     if(items.length===0){
+       const backup=await Promise.allSettled([
+         api('discover/movie',{watch_region:'SA',with_watch_providers:String(id),with_watch_monetization_types:'flatrate',sort_by:'popularity.desc'}),
+         api('discover/tv',{watch_region:'SA',with_watch_providers:String(id),with_watch_monetization_types:'flatrate',sort_by:'popularity.desc'})
+       ]);
+       items=backup.flatMap((result,index)=>result.status==='fulfilled'?(result.value.results||[]).map(x=>({...x,media_type:index===0?'movie':'tv'})):[]);
+     }
+     return [name,items.sort((a,b)=>((b.release_date||b.first_air_date||'').localeCompare(a.release_date||a.first_air_date||'')))];
    }catch{return[name,[]];}
  })]).then(out=>{if(!alive)return;const o=Object.fromEntries(out);setRows(o);setGenres({movie:o.genre_movie,tv:o.genre_tv});setBusy(false);}).catch(e=>{if(alive){setError(e.message);setBusy(false);}});return()=>{alive=false;};},[api]);
  useEffect(()=>{if(!query.trim()){setSearchResults([]);return;}let active=true;const timer=setTimeout(()=>{api('search/multi',{query}).then(data=>{if(active)setSearchResults((data.results||[]).filter(v=>v.media_type==='movie'||v.media_type==='tv'));}).catch(()=>{if(active)setSearchResults([]);});},320);return()=>{active=false;clearTimeout(timer);};},[query,api]);
@@ -104,7 +112,7 @@ export default function Page(){
   {poster(item.poster_path)?<img loading="lazy" src={poster(item.poster_path)} alt="" />:<div className="no-poster">{title(item)}</div>}
   <div className="tile-overlay"><strong>{title(item)}</strong><span>★ {item.vote_average?.toFixed?.(1)||'–'} · {(item.release_date||item.first_air_date||'').slice(0,4)}</span></div>
  </button>;}
- function shelf(label,items){if(!items?.length)return null;return <section className="shelf"><h2>{label}</h2><div className="strip">{items.filter(i=>i.poster_path).slice(0,18).map(tile)}</div></section>;}
+ function shelf(label,items,id=''){if(!items?.length)return null;return <section id={id} className="shelf"><h2>{label}</h2><div className="strip">{items.filter(i=>i.poster_path).slice(0,18).map(tile)}</div></section>;}
  const pinned=[...(siteSettings.homepage?.featured_movie_ids||[]),...(siteSettings.homepage?.featured_tv_ids||[])];
  const hero=(rows.trending||[]).find(x=>pinned.includes(x.id)&&x.backdrop_path)||(rows.trending||[]).find(x=>x.backdrop_path && (x.media_type==='movie'||x.media_type==='tv'));
  return <main dir={rtl?'rtl':'ltr'}>
@@ -114,11 +122,14 @@ export default function Page(){
  {!busy&&!selected&&!query.trim()&&tab==='home'&&<>
  {hero&&<section className="hero" style={{backgroundImage:'linear-gradient(90deg,rgba(8,9,13,.96),rgba(8,9,13,.45) 60%,rgba(8,9,13,.25)),linear-gradient(0deg,#08090d,transparent 35%),url('+poster(hero.backdrop_path,'original')+')'}}><div className="hero-content"><span className="eyebrow">{t.trending}</span><h1>{title(hero)}</h1><p>{hero.overview?.slice(0,230)}{hero.overview?.length>230?'…':''}</p><div className="hero-buttons"><button className="primary" onClick={()=>{open(hero);if(category(hero)==='movie')play(hero);}}><Play size={19} fill="currentColor"/>{t.watch}</button><button className="secondary" onClick={()=>open(hero)}>{t.details}</button></div></div></section>}
  <div className="content home-rows">
+ <div className="quick-categories">
+   {[['all',t.trending],['netflix',t.netflix],['prime',t.prime],['disney',t.disney]].map(([id,label])=><button key={id} onClick={()=>document.getElementById('row-'+id)?.scrollIntoView({behavior:'smooth',block:'start'})}>{label}</button>)}
+ </div>
  {history.length>0&&shelf(t.continue,history)}
- {shelf(t.trending,rows.trending)}
- {shelf(t.netflix,rows.netflix)}
- {shelf(t.prime,rows.prime)}
- {shelf(t.disney,rows.disney)}
+ {shelf(t.trending,rows.trending,'row-all')}
+ {shelf(t.netflix,rows.netflix,'row-netflix')}
+ {shelf(t.prime,rows.prime,'row-prime')}
+ {shelf(t.disney,rows.disney,'row-disney')}
  {shelf(t.popularMovies,rows.movies)}
  {shelf(t.popularShows,rows.shows)}
  {shelf(t.topMovies,rows.topMovies)}
