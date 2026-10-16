@@ -101,6 +101,19 @@ export default function Page(){
    if(error)throw error;
    setProfiles(old=>[...old,data]);setActiveProfileId(data.id);
  }
+ async function renameProfile(id,name){
+   const trimmed=name.trim();
+   if(!session?.user?.id)throw Error('Sign in first');
+   if(trimmed.length<1||trimmed.length>30)throw Error('Profile name must be 1–30 characters');
+   const {data,error}=await supabase.from('movie_profiles')
+     .update({name:trimmed})
+     .eq('id',id)
+     .eq('user_id',session.user.id)
+     .select('id,name')
+     .single();
+   if(error)throw error;
+   setProfiles(old=>old.map(profile=>profile.id===id?{...profile,name:data.name}:profile));
+ }
  useEffect(()=>{let alive=true;setBusy(true);setError('');const endpoints={trending:'trending/all/week',movies:'movie/popular',shows:'tv/popular',topMovies:'movie/top_rated',topShows:'tv/top_rated',now:'movie/now_playing',air:'tv/on_the_air',newEpisodes:'tv/airing_today'};
  const providers={netflix:8,prime:119};
  const since=new Date(Date.now()-540*86400000).toISOString().slice(0,10);
@@ -315,7 +328,7 @@ export default function Page(){
  {category(selected)==='tv'&&<div className="season-area"><div className="results-head"><h2>{t.episodes}</h2><div className="genre-select"><select value={season} onChange={e=>{setSeason(Number(e.target.value));setEpisode(null);}}>{(detail?.seasons||[]).filter(s=>s.season_number>0).map(s=><option key={s.id} value={s.season_number}>{s.name}</option>)}</select><ChevronDown size={16}/></div></div><div className="episode-list">{(seasonData?.episodes||[]).map(ep=><button className="episode-card" key={ep.id} onClick={()=>play(selected,season,ep.episode_number)}>{ep.still_path?<img loading="lazy" src={poster(ep.still_path,'w300')} alt=""/>:<div className="still-placeholder"><Tv/></div>}<div><h3>{ep.episode_number}. {ep.name}</h3><p>{ep.overview?.slice(0,180)||t.noOverview}</p><small>{ep.runtime?ep.runtime+' min':''}</small></div><Play size={20}/></button>)}</div></div>}
  {episode&&<div className="player-shade" role="dialog" aria-modal="true" aria-label={t.watch}><div className="player-box"><div className="player-header"><strong>{title(selected)} {episode.type==='tv'?' · S'+episode.season+' E'+episode.number:''}</strong><div className="player-tools">{episode.type==='tv'&&<button className="next-episode" onClick={nextEpisode}>{t.nextEpisode} <ArrowRight size={17}/></button>}<button onClick={()=>{setEpisode(null);if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});}} aria-label={t.close}><X size={23}/></button></div></div><div className="video-wrap"><iframe key={episode.type+episode.id+episode.season+episode.number} src={(episode.type==='movie'?'https://urplayer.net/embed/movie/'+episode.id:'https://urplayer.net/embed/tv/'+episode.id+'/'+episode.season+'/'+episode.number)+'?autoplay=1'} title="URPlayer" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen sandbox="allow-scripts allow-same-origin allow-forms allow-presentation" referrerPolicy="no-referrer"/></div><p>{t.playerNotice}</p></div></div>}
  </section>}
- {accountOpen&&<AccountPanel language={language} session={session} profiles={profiles} activeProfile={profiles.find(p=>p.id===activeProfileId)} onSelectProfile={id=>{setActiveProfileId(id);setSelected(null);setEpisode(null);}} onCreateProfile={addProfile} onClose={()=>setAccountOpen(false)}/>}
+ {accountOpen&&<AccountPanel language={language} session={session} profiles={profiles} activeProfile={profiles.find(p=>p.id===activeProfileId)} onSelectProfile={id=>{setActiveProfileId(id);setSelected(null);setEpisode(null);}} onCreateProfile={addProfile} onRenameProfile={renameProfile} onClose={()=>setAccountOpen(false)}/>}
  <footer><span>{t.tmdb}</span><a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer">TMDB</a><span> · </span><a href="https://urplayer.net" target="_blank" rel="noopener noreferrer">URPlayer</a></footer>
  </main>;
 }
