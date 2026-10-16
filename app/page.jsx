@@ -262,6 +262,24 @@ export default function Page(){
      else setAppIssue(rtl?'الحلقة القادمة لم تصدر بعد':'Next episode is not released yet');
    }).catch(()=>setAppIssue(rtl?'تعذر تحميل الحلقة التالية':'Could not load next episode'));
  }
+ async function removeFromContinue(item){
+   if(!item?.id)return;
+   if(session?.user?.id&&!libraryReady)return;
+   const key=keyOf(item);
+   const previous=history;
+   const updated=history.filter(x=>keyOf(x)!==key);
+   setHistory(updated);
+   if(!session?.user?.id){
+     localStorage.setItem('movie.history',JSON.stringify(updated));
+     return;
+   }
+   const {error}=await supabase.from('movie_profile_library').delete()
+     .eq('profile_id',activeProfileId).eq('kind','history').eq('item_key',key);
+   if(error){
+     setHistory(previous);
+     setAppIssue(error.message||'Could not remove from Continue Watching');
+   }
+ }
  function play(item,s=1,e=1){
    if(session?.user?.id&&!libraryReady)return;
    enterFullscreen();
@@ -281,7 +299,21 @@ export default function Page(){
   {query.trim()&&<span className="search-type-label">{category(item)==='tv'?(rtl?'مسلسل':'TV Show'):(rtl?'فيلم':'Movie')}</span>}
    <div className="tile-overlay"><strong>{title(item)}</strong><span>★ {item.vote_average?.toFixed?.(1)||'–'} · {(item.release_date||item.first_air_date||'').slice(0,4)}</span></div>
  </button>;}
- function shelf(label,items,id='',sectionKey=''){if(!items?.length)return null;const isContinue=sectionKey==='continue';return <section id={id} className="shelf"><h2>{isContinue?label:<button className="shelf-heading" onClick={()=>nav('section:'+(sectionKey||id.replace('row-','')))}>{label} <span aria-hidden="true">›</span></button>}</h2><div className="strip">{items.filter(i=>i&&i.poster_path).slice(0,18).map((item,i)=>isContinue?<button className="tile resume-tile" key={'resume-'+keyOf(item)} onClick={()=>{setEpisode(null);open(item);}} aria-label={(item.title||item.name||'')+' — '+t.details}><img loading="lazy" src={poster(item.poster_path)} alt=""/><span className="resume-label">{category(item)==='tv'?('S'+(item.season||1)+' · E'+(item.episode||1)):(rtl?'متابعة الفيلم':'Continue movie')} <ArrowRight size={15}/></span></button>:tile(item,i))}</div></section>;}
+ function shelf(label,items,id='',sectionKey=''){
+   if(!items?.length)return null;
+   const isContinue=sectionKey==='continue';
+   return <section id={id} className="shelf">
+     <h2>{isContinue?label:<button className="shelf-heading" onClick={()=>nav('section:'+(sectionKey||id.replace('row-','')))}>{label} <span aria-hidden="true">›</span></button>}</h2>
+     <div className="strip">{items.filter(i=>i&&i.poster_path).slice(0,18).map((item,i)=>isContinue?
+       <div className="resume-card" key={'resume-'+keyOf(item)}>
+         <button className="tile resume-tile" onClick={()=>{setEpisode(null);open(item);}} aria-label={(item.title||item.name||'')+' — '+t.details}>
+           <img loading="lazy" src={poster(item.poster_path)} alt=""/>
+           <span className="resume-label">{category(item)==='tv'?('S'+(item.season||1)+' · E'+(item.episode||1)):(rtl?'متابعة الفيلم':'Continue movie')} <ArrowRight size={15}/></span>
+         </button>
+         <button type="button" className="resume-remove" onClick={()=>removeFromContinue(item)} aria-label={(rtl?'إزالة من متابعة المشاهدة: ':'Remove from Continue Watching: ')+(item.title||item.name||'')} title={rtl?'إزالة من متابعة المشاهدة':'Remove from Continue Watching'}><X size={17}/></button>
+       </div>:tile(item,i))}</div>
+   </section>;
+ }
  const pinned=[...(siteSettings.homepage?.featured_movie_ids||[]),...(siteSettings.homepage?.featured_tv_ids||[])];
  const hero=(rows.trending||[]).find(x=>pinned.includes(x.id)&&x.backdrop_path)||(rows.trending||[]).find(x=>x.backdrop_path && (x.media_type==='movie'||x.media_type==='tv'));
  return <main dir={rtl?'rtl':'ltr'}>
