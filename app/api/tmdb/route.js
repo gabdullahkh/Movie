@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-const ALLOWED = new Set(['trending/all/week','trending/movie/week','trending/tv/week','movie/popular','movie/top_rated','movie/now_playing','tv/popular','tv/top_rated','tv/on_the_air','genre/movie/list','genre/tv/list','search/multi','discover/movie','discover/tv']);
+const ALLOWED = new Set(['trending/all/week','trending/movie/week','trending/tv/week','movie/popular','movie/top_rated','movie/now_playing','tv/popular','tv/top_rated','tv/on_the_air','tv/airing_today','genre/movie/list','genre/tv/list','search/multi','discover/movie','discover/tv']);
 export async function GET(request) {
   const token = process.env.TMDB_READ_ACCESS_TOKEN;
   const apiKey = process.env.TMDB_API_KEY;
@@ -8,7 +8,7 @@ export async function GET(request) {
   let path=p.get('path')||'trending/all/week';
   if (!ALLOWED.has(path) && !/^(movie|tv)\/\d{1,10}$/.test(path) && !/^tv\/\d{1,10}\/season\/\d{1,3}$/.test(path)) return NextResponse.json({error:'Invalid path'}, {status:400});
   const url = new URL('https://api.themoviedb.org/3/'+path);
-  for (const key of ['language','page','query','with_genres','sort_by','include_adult','with_watch_providers','watch_region','with_watch_monetization_types','primary_release_date.gte','first_air_date.gte','primary_release_date.lte','first_air_date.lte']) {
+  for (const key of ['language','page','query','with_genres','sort_by','include_adult','with_watch_providers','watch_region','with_watch_monetization_types','primary_release_date.gte','first_air_date.gte','primary_release_date.lte','first_air_date.lte','release_date.lte','release_date.gte']) {
     const v=p.get(key);
     if(v) url.searchParams.set(key, v.slice(0,key==='query'?150:40));
   }
