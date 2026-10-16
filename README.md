@@ -4,8 +4,8 @@ Netflix-inspired, bilingual (Arabic/English) movie and TV discovery website usin
 
 ## Deployment
 1. Import this repository into Vercel (Next.js preset).
-2. Get an **API Read Access Token** from https://www.themoviedb.org/settings/api
-3. Once development and testing are complete, add `TMDB_READ_ACCESS_TOKEN` to the hosting environment. Vercel deployment is deliberately reserved for the final step.
+2. Get a **v3 API Key** from https://www.themoviedb.org/settings/api
+3. Once development and testing are complete, add `TMDB_API_KEY` to the hosting environment. Vercel deployment is deliberately reserved for the final step.
 4. Open the site. No authentication is required.
 
 ## Features
