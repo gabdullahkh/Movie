@@ -15,3 +15,8 @@
 .account-message{color:#e1d3a7;font-size:13px;line-height:1.5}
 .account-email{font-weight:650;overflow-wrap:anywhere}
 @media(max-width:540px){.account-button{font-size:11px;padding:8px;max-width:82px}.nav-actions{gap:6px}}
+
+.quick-categories{display:flex;gap:9px;overflow-x:auto;padding:8px 0 24px;margin-bottom:5px;scrollbar-width:thin}
+.quick-categories button{white-space:nowrap;border:1px solid #373941;background:#191b21;border-radius:7px;color:#f4f4f4;padding:11px 17px;font-size:13px}
+.quick-categories button:hover{background:#30333b;border-color:#676a75}
+.shelf{scroll-margin-top:95px}
