@@ -17,9 +17,9 @@ export default function Page(){
  const [tab,setTab]=useState('home'),[query,setQuery]=useState(''),[searchResults,setSearchResults]=useState([]);
  const [rows,setRows]=useState({}),[genres,setGenres]=useState({movie:[],tv:[]}),[genre,setGenre]=useState('');
  const [selected,setSelected]=useState(null),[detail,setDetail]=useState(null),[season,setSeason]=useState(1),[seasonData,setSeasonData]=useState(null),[episode,setEpisode]=useState(null);
- const [watchlist,setWatchlist]=useState([]),[history,setHistory]=useState([]),[busy,setBusy]=useState(true),[error,setError]=useState(''),[page,setPage]=useState(1);
+ const [watchlist,setWatchlist]=useState([]),[history,setHistory]=useState([]),[siteSettings,setSiteSettings]=useState({}),[busy,setBusy]=useState(true),[error,setError]=useState(''),[page,setPage]=useState(1);
  const api=useCallback(async(path,params={})=>{const u=new URLSearchParams({path,language:language==='ar'?'ar-SA':'en-US',...params});const r=await fetch('/api/tmdb?'+u);const json=await r.json();if(!r.ok)throw Error(json.error||'Unable to fetch');return json;},[language]);
- useEffect(()=>{setWatchlist(readStorage('movie.watchlist',[]));setHistory(readStorage('movie.history',[]));setLanguage(readStorage('movie.language','en'));},[]);
+ useEffect(()=>{setWatchlist(readStorage('movie.watchlist',[]));setHistory(readStorage('movie.history',[]));setLanguage(readStorage('movie.language','en'));fetch('/api/settings').then(r=>r.json()).then(d=>setSiteSettings(d.settings||{})).catch(()=>{});},[]);
  useEffect(()=>{localStorage.setItem('movie.language',JSON.stringify(language));document.documentElement.lang=language;document.documentElement.dir=rtl?'rtl':'ltr';},[language,rtl]);
  useEffect(()=>{localStorage.setItem('movie.watchlist',JSON.stringify(watchlist));},[watchlist]);
  useEffect(()=>{localStorage.setItem('movie.history',JSON.stringify(history));},[history]);
@@ -28,7 +28,7 @@ export default function Page(){
  useEffect(()=>{if(!query.trim()){setSearchResults([]);return;}let active=true;const timer=setTimeout(()=>{api('search/multi',{query}).then(data=>{if(active)setSearchResults((data.results||[]).filter(v=>v.media_type==='movie'||v.media_type==='tv'));}).catch(()=>{if(active)setSearchResults([]);});},320);return()=>{active=false;clearTimeout(timer);};},[query,api]);
  useEffect(()=>{if(!selected){setDetail(null);return;}let active=true;setDetail(null);setEpisode(null);setSeasonData(null);api(category(selected)+'/'+selected.id).then(d=>{if(active){setDetail(d);const first=d.seasons?.find(s=>s.season_number>0);setSeason(first?.season_number??1);}}).catch(()=>{});return()=>{active=false;};},[selected,api]);
  useEffect(()=>{if(!detail||category(detail)!=='tv')return;let active=true;api('tv/'+detail.id+'/season/'+season).then(d=>{if(active)setSeasonData(d);}).catch(()=>{if(active)setSeasonData(null);});return()=>{active=false;};},[detail,season,api]);
- useEffect(()=>{if(!genre||tab==='home'||tab==='list'||tab==='search')return;let active=true;api('discover/'+tab,{with_genres:genre,page:String(page),sort_by:'popularity.desc'}).then(d=>{if(active)setRows(old=>({...old,discovered:d.results||[]}));}).catch(()=>{});return()=>{active=false;};},[genre,tab,page,api]);
+ useEffect(()=>{if(!genre||tab==='home'||tab==='list'||tab==='search')return;let active=true;api('discover/'+tab,{with_genres:genre,page:String(page),sort_by:'popularity.desc'}).then(d=>{if(active)setRows(old=>({...old,discovered:page===1?(d.results||[]):[...(old.discovered||[]),...(d.results||[])]}));}).catch(()=>{});return()=>{active=false;};},[genre,tab,page,api]);
  function open(item){setSelected({...item,media_type:category(item)});window.scrollTo({top:0,behavior:'smooth'});}
  function toggleList(item){const k=keyOf(item);setWatchlist(old=>old.some(x=>keyOf(x)===k)?old.filter(x=>keyOf(x)!==k):[{...item,media_type:category(item)},...old]);}
  function play(item,s=1,e=1){const type=category(item),entry={...item,media_type:type,season:s,episode:e,watchedAt:Date.now()};setHistory(old=>[entry,...old.filter(x=>keyOf(x)!==keyOf(entry))].slice(0,25));setEpisode({type,id:item.id,season:s,number:e});}
@@ -41,7 +41,8 @@ export default function Page(){
   <div className="tile-overlay"><strong>{title(item)}</strong><span>★ {item.vote_average?.toFixed?.(1)||'–'} · {(item.release_date||item.first_air_date||'').slice(0,4)}</span></div>
  </button>;}
  function shelf(label,items){if(!items?.length)return null;return <section className="shelf"><h2>{label}</h2><div className="strip">{items.filter(i=>i.poster_path).slice(0,18).map(tile)}</div></section>;}
- const hero=(rows.trending||[]).find(x=>x.backdrop_path && (x.media_type==='movie'||x.media_type==='tv'));
+ const pinned=[...(siteSettings.homepage?.featured_movie_ids||[]),...(siteSettings.homepage?.featured_tv_ids||[])];
+ const hero=(rows.trending||[]).find(x=>pinned.includes(x.id)&&x.backdrop_path)||(rows.trending||[]).find(x=>x.backdrop_path && (x.media_type==='movie'||x.media_type==='tv'));
  return <main dir={rtl?'rtl':'ltr'}>
  <header className="topbar"><button className="brand" onClick={()=>nav('home')}>MOVIE<span>.</span></button><nav className="main-nav"><button className={tab==='home'?'active':''} onClick={()=>nav('home')}>{t.home}</button><button className={tab==='movie'?'active':''} onClick={()=>nav('movie')}>{t.movies}</button><button className={tab==='tv'?'active':''} onClick={()=>nav('tv')}>{t.tv}</button><button className={tab==='list'?'active':''} onClick={()=>nav('list')}>{t.myList}</button></nav><div className="nav-actions"><div className="searchbox"><Search size={17}/><input aria-label={t.search} value={query} onChange={e=>{setQuery(e.target.value);setSelected(null);}} placeholder={t.search}/>{query&&<button aria-label={t.close} onClick={()=>setQuery('')}><X size={16}/></button>}</div><button className="language" onClick={()=>setLanguage(x=>x==='en'?'ar':'en')} aria-label="Change language"><Globe2 size={18}/><span>{language==='en'?'العربية':'English'}</span></button></div></header>
  {error&&<div className="error">{t.unavailable} <small>{error}</small></div>}
