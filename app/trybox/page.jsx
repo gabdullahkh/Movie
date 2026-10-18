@@ -1,104 +1,188 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Search, Play, ArrowLeft, Bookmark, Check, RotateCcw } from 'lucide-react';
 
-export default function TryBoxPage() {
-  const [kind, setKind] = useState('movie');
-  const [id, setId] = useState('1058424');
-  const [season, setSeason] = useState('1');
-  const [episode, setEpisode] = useState('1');
-  const [active, setActive] = useState(null);
-  const [loaded, setLoaded] = useState(false);
-  const [frameVersion, setFrameVersion] = useState(0);
-  const [loginMessage, setLoginMessage] = useState('');
-  const [loginAttempted, setLoginAttempted] = useState(false);
-  const [testingSession, setTestingSession] = useState(false);
-  const loginPopup = useRef(null);
-  const loginStarted = useRef(false);
-  function reloadPlayer() {
-    setLoaded(false);
-    setFrameVersion(v => v + 1);
-  }
-  function openLogin() {
-    const popup = window.open('https://trybox.app/', 'trybox-signin', 'popup=yes,width=980,height=740,resizable=yes,scrollbars=yes');
-    if (!popup) { setLoginMessage('Popup blocked. Allow popups for this site and try again.'); return; }
-    loginPopup.current = popup;
-    loginStarted.current = true;
-    setLoginAttempted(true);
-    setLoginMessage('Complete sign-in in the TryBox popup, then return here and test the embedded session.');
-    popup.focus();
-  }
-  useEffect(() => {
-    const backFromLogin = () => {
-      if (!loginStarted.current) return;
-      loginStarted.current = false;
-      setLoginMessage('Returned from TryBox. Select “Test embedded session” to check whether TryBox recognizes your account inside Movie.');
-    };
-    window.addEventListener('focus', backFromLogin);
-    return () => window.removeEventListener('focus', backFromLogin);
-  }, []);
-  useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem('movie.trybox.settings') || '{}');
-      if (stored.kind === 'movie' || stored.kind === 'tv') setKind(stored.kind);
-      if (/^\d+$/.test(String(stored.id || ''))) setId(String(stored.id));
-      if (/^\d+$/.test(String(stored.season || ''))) setSeason(String(stored.season));
-      if (/^\d+$/.test(String(stored.episode || ''))) setEpisode(String(stored.episode));
-    } catch {}
-  }, []);
-  const buildUrl = () => {
-    if (!/^\d{1,12}$/.test(id) || Number(id) < 1) return null;
-    if (kind === 'tv' && (!/^\d{1,3}$/.test(season) || !/^\d{1,3}$/.test(episode) || Number(season) < 1 || Number(episode) < 1)) return null;
-    return kind === 'movie' ? 'https://trybox.app/movie/' + id + '/play' :
-      'https://trybox.app/tv/' + id + '/season/' + season + '/episode/' + episode + '/play';
-  };
-  const inputStyle = { width: '100%', background: '#202229', border: '1px solid #4a4b52', color: '#fff', borderRadius: 7, padding: '12px' };
-  function start(event) {
-    event.preventDefault();
-    const next = buildUrl();
-    if (!next) return;
-    if (!testingSession) return;
-    setLoaded(false);
-    setActive(next);
-    setFrameVersion(v => v + 1);
-    localStorage.setItem('movie.trybox.settings', JSON.stringify({ kind, id, season, episode }));
-  }
-  return <main style={{minHeight:'100vh',padding:'28px max(4%, 18px)',background:'#090a0e',color:'#f6f6f7'}}>
-    <header style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:15,flexWrap:'wrap',marginBottom:28}}>
-      <div><h1 style={{margin:'0 0 8px',fontSize:29}}>TryBox <span style={{color:'#ef777f',fontSize:13}}>Experimental player</span></h1><p style={{color:'#adb0bc',margin:0}}>Separate from Movie and URPlayer.</p></div>
-      <Link href="/" style={{color:'white',textDecoration:'none',background:'#2b2d34',borderRadius:7,padding:'12px 16px'}}>← Back to Movie</Link>
-    </header>
-    <section style={{maxWidth:960,background:'#17191f',border:'1px solid #343640',padding:24,borderRadius:12,marginBottom:20}}>
-      <h2 style={{fontSize:23,margin:'0 0 10px'}}>1. Sign in to TryBox</h2>
-      <p style={{color:'#c0c3cc',lineHeight:1.6}}>Sign in through TryBox's own website. Google login cannot complete inside the embedded player.</p>
-      <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center',marginTop:16}}>
-        <button type="button" onClick={openLogin} style={{background:'#e50914',color:'#fff',border:0,borderRadius:7,padding:'13px 20px',fontWeight:700,cursor:'pointer'}}>Sign in to TryBox (popup)</button>
-        <button type="button" disabled={!loginAttempted} onClick={()=>{setTestingSession(true);setLoaded(false);setActive('https://trybox.app/');setFrameVersion(v=>v+1);setLoginMessage('Check the embedded page below. If it requests login again, the session is not shared and playback cannot be unlocked from Movie.');}} style={{background:loginAttempted?'#353943':'#25272d',color:loginAttempted?'white':'#888',border:0,borderRadius:7,padding:'13px 20px',cursor:loginAttempted?'pointer':'not-allowed'}}>Test embedded session</button>
+const poster = (path, size='w500') => path ? 'https://image.tmdb.org/t/p/'+size+path : '';
+const kindOf = item => item.media_type === 'tv' || item.first_air_date !== undefined || (item.name && !item.title) ? 'tv' : 'movie';
+const idOf = item => kindOf(item)+':'+item.id;
+const rowsConfig = [
+  ['trending','Trending this week','trending/all/week'],
+  ['movies','Popular movies','movie/popular'],
+  ['shows','Popular TV shows','tv/popular'],
+  ['topMovies','Top rated movies','movie/top_rated'],
+  ['topShows','Top rated shows','tv/top_rated'],
+  ['recentMovies','Now playing','movie/now_playing'],
+  ['airing','Currently airing','tv/on_the_air']
+];
+const inputStyle={padding:'12px 14px',borderRadius:8,border:'1px solid #464750',background:'#202127',color:'#fff'};
+const buttonStyle={padding:'11px 17px',borderRadius:8,border:'1px solid #444750',background:'#24262e',color:'white',cursor:'pointer'};
+const redStyle={...buttonStyle,background:'#e50914',borderColor:'#e50914',fontWeight:750};
+async function tmdb(path,params={}) {
+ const q=new URLSearchParams({path,language:'en-US',...params});
+ const r=await fetch('/api/tmdb?'+q);
+ const data=await r.json();
+ if(!r.ok)throw Error(data.error||'Unable to fetch TMDB titles');
+ return data;
+}
+export default function TryBoxPage(){
+ const [stage,setStage]=useState('login');
+ const [loginAttempted,setLoginAttempted]=useState(false);
+ const [tab,setTab]=useState('home');
+ const [rows,setRows]=useState({});
+ const [loading,setLoading]=useState(true);
+ const [error,setError]=useState('');
+ const [query,setQuery]=useState('');
+ const [found,setFound]=useState([]);
+ const [searching,setSearching]=useState(false);
+ const [selected,setSelected]=useState(null);
+ const [details,setDetails]=useState(null);
+ const [season,setSeason]=useState(1);
+ const [episodes,setEpisodes]=useState([]);
+ const [episode,setEpisode]=useState(1);
+ const [player,setPlayer]=useState('');
+ const [playerVersion,setPlayerVersion]=useState(0);
+ const [favourites,setFavourites]=useState([]);
+ const [history,setHistory]=useState([]);
+ const [showLogin,setShowLogin]=useState(false);
+ useEffect(()=>{
+  try{
+   const saved=localStorage.getItem('movie.trybox.catalogue');
+   const data=saved?JSON.parse(saved):{};
+   setFavourites(Array.isArray(data.favourites)?data.favourites:[]);
+   setHistory(Array.isArray(data.history)?data.history:[]);
+  }catch{}
+ },[]);
+ useEffect(()=>{
+  if(stage!=='browse')return;
+  let live=true;
+  setLoading(true);
+  Promise.all(rowsConfig.map(async([key,,path])=>{
+   try{const d=await tmdb(path);return [key,d.results||[]];}catch{return[key,[]];}
+  })).then(entries=>{if(live){setRows(Object.fromEntries(entries));setLoading(false);}});
+  return()=>{live=false;};
+ },[stage]);
+ useEffect(()=>{
+  if(stage!=='browse')return;
+  if(!query.trim()){setFound([]);return;}
+  let live=true;setSearching(true);
+  const timeout=setTimeout(()=>{
+   tmdb('search/multi',{query:query.trim()}).then(d=>{if(live)setFound((d.results||[]).filter(x=>(x.media_type==='movie'||x.media_type==='tv')&&x.poster_path));}).catch(()=>{if(live)setFound([]);}).finally(()=>{if(live)setSearching(false);});
+  },300);
+  return()=>{live=false;clearTimeout(timeout);};
+ },[query,stage]);
+ useEffect(()=>{
+  if(!selected)return;
+  let live=true;setDetails(null);setEpisodes([]);setEpisode(1);setSeason(1);
+  const kind=kindOf(selected);
+  tmdb(kind+'/'+selected.id).then(d=>{if(live)setDetails(d);}).catch(()=>{});
+  return()=>{live=false;};
+ },[selected]);
+ useEffect(()=>{
+  if(!selected || kindOf(selected)!=='tv')return;
+  let live=true;
+  tmdb('tv/'+selected.id+'/season/'+season).then(d=>{if(live)setEpisodes(d.episodes||[]);}).catch(()=>{if(live)setEpisodes([]);});
+  return()=>{live=false;};
+ },[selected,season]);
+ function save(f,h){
+  setFavourites(f);setHistory(h);
+  localStorage.setItem('movie.trybox.catalogue',JSON.stringify({favourites:f,history:h}));
+ }
+ function toggleFavourite(item){
+  const exists=favourites.some(x=>idOf(x)===idOf(item));
+  save(exists?favourites.filter(x=>idOf(x)!==idOf(item)):[item,...favourites],history);
+ }
+ function launch(item,s=season,e=episode){
+  const kind=kindOf(item);
+  // TryBox keeps the real video and login session inside its own iframe.
+  const url=kind==='tv'
+   ? 'https://trybox.app/tv/'+item.id+'/season/'+s+'/episode/'+e+'/play'
+   : 'https://trybox.app/movie/'+item.id+'/play';
+  const seen={...item,media_type:kind,season:kind==='tv'?s:null,episode:kind==='tv'?e:null};
+  const next=[seen,...history.filter(x=>idOf(x)!==idOf(item))].slice(0,30);
+  save(favourites,next);
+  setPlayer(url);setPlayerVersion(v=>v+1);
+ }
+ function card(item,index){
+  return <button key={idOf(item)+'-'+index} className="tile" onClick={()=>{setSelected(item);setPlayer('');window.scrollTo({top:0,behavior:'smooth'});}} aria-label={item.title||item.name}>
+   {item.poster_path?<img alt={item.title||item.name||'Poster'} loading="lazy" src={poster(item.poster_path)}/>:<span className="no-poster">{item.title||item.name}</span>}
+   <span className="tile-overlay"><strong>{item.title||item.name}</strong><span>{kindOf(item)==='tv'?'TV show':'Movie'} · {item.vote_average?Number(item.vote_average).toFixed(1):'—'} ★</span></span>
+  </button>;
+ }
+ function goBrowse(){setStage('browse');setSelected(null);setTab('home');setPlayer('');}
+ const featured=rows.trending?.find(x=>x.backdrop_path);
+ const shown=query.trim()?found:tab==='movies'?rows.movies:tab==='tv'?rows.shows:tab==='list'?favourites:tab==='history'?history:null;
+ return <main style={{background:'#08090d',minHeight:'100vh',color:'white'}}>
+  <header className="topbar">
+   <button className="brand" onClick={()=>{if(stage==='browse'){setSelected(null);setTab('home');setPlayer('');}}}>TRYBOX<span>.</span></button>
+   {stage==='browse'&&<nav className="main-nav">
+    {[['home','Home'],['movies','Movies'],['tv','TV Shows'],['list','My List'],['history','Continue watching']].map(([key,label])=><button key={key} className={tab===key?'active':''} onClick={()=>{setTab(key);setSelected(null);setQuery('');setPlayer('');}}>{label}</button>)}
+   </nav>}
+   <div className="nav-actions">
+    {stage==='browse'&&<div className="searchbox"><Search size={18}/><input aria-label="Search titles" placeholder="Search movies and shows" value={query} onChange={e=>{setQuery(e.target.value);setSelected(null);setPlayer('');}}/></div>}
+    <Link href="/" style={{...buttonStyle,textDecoration:'none',fontSize:13}}>Movie home</Link>
+   </div>
+  </header>
+  {stage==='login'?<section style={{maxWidth:880,margin:'38px auto',padding:'0 22px'}}>
+   <h1 style={{fontSize:35,marginBottom:10}}>Sign in to TryBox</h1>
+   <p style={{color:'#b8bbc5',lineHeight:1.6}}>Use your working email account inside TryBox below. Your login session belongs to TryBox; Movie does not store your password.</p>
+   <div style={{border:'1px solid #393c46',borderRadius:12,overflow:'hidden',marginTop:20,background:'#000'}}>
+    <iframe src="https://trybox.app/" title="TryBox email login" allow="autoplay; fullscreen; picture-in-picture" style={{display:'block',width:'100%',height:530,border:0}} onLoad={()=>setLoginAttempted(true)}/>
+   </div>
+   <p style={{color:'#aeb1bd',fontSize:13}}>After signing in with email above, continue to the Movie-style catalogue. TryBox controls whether this session remains signed in.</p>
+   <button onClick={goBrowse} style={{...redStyle,marginTop:12}}>I've signed in — Continue</button>
+  </section>:<>
+   {!selected&&tab==='home'&&!query.trim()&&featured&&<section className="hero" style={{backgroundImage:'linear-gradient(90deg,#08090df5,#08090d77 62%),linear-gradient(0deg,#08090d,transparent 45%),url('+poster(featured.backdrop_path,'original')+')'}}>
+    <div className="hero-content"><span className="eyebrow">TryBox catalogue</span><h1>{featured.title||featured.name}</h1><p>{featured.overview}</p><div className="hero-buttons"><button className="primary" onClick={()=>setSelected(featured)}><Play size={18}/> Details & play</button></div></div>
+   </section>}
+   {!selected&&(query.trim()||tab!=='home')&&<section className="content results-page">
+    <h1 style={{fontSize:30,marginBottom:24}}>{query?'Search results':tab==='movies'?'Popular movies':tab==='tv'?'Popular TV shows':tab==='list'?'My List':'Continue watching'}</h1>
+    {searching&&<p style={{color:'#bbb'}}>Searching...</p>}
+    {!searching&&<div className="poster-grid">{(shown||[]).filter(x=>x.poster_path).map(card)}</div>}
+    {!searching&&!(shown||[]).length&&<p className="empty">No titles found.</p>}
+   </section>}
+   {!selected&&tab==='home'&&!query.trim()&&<div className="content home-rows">
+    {loading&&<p className="loading">Loading catalogue...</p>}
+    {history.length>0&&<section className="shelf"><h2>Continue watching</h2><div className="strip">{history.filter(x=>x.poster_path).slice(0,15).map(card)}</div></section>}
+    {rowsConfig.map(([key,label])=><section key={key} className="shelf"><h2>{label}</h2><div className="strip">{(rows[key]||[]).filter(x=>x.poster_path).slice(0,22).map(card)}</div></section>)}
+   </div>}
+   {selected&&<section className="detail-page">
+    <button className="back" onClick={()=>{setSelected(null);setPlayer('');}}><ArrowLeft size={17}/> Back to browsing</button>
+    <div className="detail-hero" style={{backgroundImage:'linear-gradient(0deg,#08090d,#08090d77),url('+poster(details?.backdrop_path||selected.backdrop_path,'original')+')'}}/>
+    <div className="detail-info">
+     <div className="detail-poster">{selected.poster_path&&<img src={poster(selected.poster_path)} alt="Poster"/>}</div>
+     <div className="detail-body">
+      <h1>{details?.title||details?.name||selected.title||selected.name}</h1>
+      <p className="facts">{kindOf(selected)==='tv'?'TV show':'Movie'} · {(details?.release_date||details?.first_air_date||selected.release_date||selected.first_air_date||'').slice(0,4)} · ★ {(details?.vote_average||selected.vote_average||0).toFixed(1)}</p>
+      <p className="synopsis">{details?.overview||selected.overview}</p>
+      <div className="actions">
+       {kindOf(selected)==='movie'&&<button className="primary" onClick={()=>launch(selected)}><Play size={17}/> Watch with TryBox</button>}
+       <button className="secondary" onClick={()=>toggleFavourite(selected)}>{favourites.some(x=>idOf(x)===idOf(selected))?<Check size={17}/>:<Bookmark size={17}/>} {favourites.some(x=>idOf(x)===idOf(selected))?'Saved':'My List'}</button>
       </div>
-      {loginMessage&&<p role="status" style={{color:'#cdd0d8',fontSize:14,marginTop:15}}>{loginMessage}</p>}
-      <p style={{fontSize:13,color:'#9da1ad',marginTop:16}}>Movie cannot read TryBox's login cookies or verify its session. This is a manual test, not a verified login.</p>
-    </section>
-    {testingSession&&<section style={{maxWidth:960,marginBottom:20}}>
-      <h2 style={{fontSize:21}}>2. Select content</h2>
-      <form onSubmit={start} style={{display:'flex',flexWrap:'wrap',gap:12,alignItems:'end',padding:18,background:'#17191f',border:'1px solid #343640',borderRadius:12}}>
-      <label style={{display:'grid',gap:8,flex:'1 1 140px'}}>Content type<select style={inputStyle} value={kind} onChange={e=>setKind(e.target.value)}><option value="movie">Movie</option><option value="tv">TV show</option></select></label>
-      <label style={{display:'grid',gap:8,flex:'2 1 190px'}}>TMDB ID<input style={inputStyle} required min="1" type="number" value={id} onChange={e=>setId(e.target.value)} /></label>
-      {kind === 'tv' && <>
-        <label style={{display:'grid',gap:8,flex:'1 1 100px'}}>Season<input style={inputStyle} required min="1" type="number" value={season} onChange={e=>setSeason(e.target.value)}/></label>
-        <label style={{display:'grid',gap:8,flex:'1 1 100px'}}>Episode<input style={inputStyle} required min="1" type="number" value={episode} onChange={e=>setEpisode(e.target.value)}/></label>
-      </>}
-      <button type="submit" disabled={!testingSession} style={{background:'#e50914',border:0,color:'#fff',fontWeight:700,borderRadius:7,padding:'13px 24px'}}>Open player</button>
-      </form>
+     </div>
+    </div>
+    {kindOf(selected)==='tv'&&<section className="season-area"><h2>Episodes</h2>
+     <label>Season <select style={{...inputStyle,marginLeft:12}} value={season} onChange={e=>{setSeason(Number(e.target.value));setEpisode(1);setPlayer('');}}>{Array.from({length:Math.min(details?.number_of_seasons||1,40)},(_,i)=><option key={i+1} value={i+1}>{i+1}</option>)}</select></label>
+     <div className="episode-list" style={{marginTop:18}}>{episodes.map(ep=><button key={ep.id||ep.episode_number} className="episode-card" onClick={()=>{setEpisode(ep.episode_number);launch(selected,season,ep.episode_number);}}>
+      {ep.still_path?<img src={poster(ep.still_path,'w300')} alt=""/>:<div className="still-placeholder">Episode {ep.episode_number}</div>}
+      <div><h3>{ep.episode_number}. {ep.name}</h3><p>{ep.overview||'Play episode on TryBox'}</p></div><Play size={18}/></button>)}</div>
     </section>}
-    {active && <section style={{marginTop:24,maxWidth:1150}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap',marginBottom:12}}>
-        <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}><strong>TryBox embedded session / player</strong><button type="button" onClick={reloadPlayer} style={{color:'white',background:'#32343e',border:0,padding:'10px 15px',borderRadius:7,cursor:'pointer'}}>Reload player</button></div>
-        <a href={active} target="_blank" rel="noreferrer" style={{color:'white',textDecoration:'none',background:'#2e313b',padding:'10px 15px',borderRadius:7}}>Open directly ↗</a>
-      </div>
-      <div style={{width:'100%',aspectRatio:'16 / 9',background:'#000',borderRadius:10,overflow:'hidden',border:'1px solid #383b44'}}>
-        <iframe key={active + ':' + frameVersion} src={active} title="TryBox player" onLoad={()=>setLoaded(true)} allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" style={{width:'100%',height:'100%',border:0}} />
-      </div>
-      <p style={{color:'#aeb0b9',fontSize:13,lineHeight:1.6}}>If TryBox prompts you to sign in again inside this embedded page, its session is not available here. Movie cannot transfer or override that login. {loaded ? 'Page load event received; playback is not independently verified.' : ''}</p>
+    {player&&<section style={{padding:'20px 5% 80px'}}>
+     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:14,marginBottom:13}}>
+      <h2 style={{margin:0}}>TryBox playback {kindOf(selected)==='tv'?' · S'+season+' E'+episode:''}</h2>
+      <button style={buttonStyle} onClick={()=>setPlayerVersion(v=>v+1)}><RotateCcw size={15}/> Reload player</button>
+     </div>
+     <div style={{aspectRatio:'16/9',background:'#000',border:'1px solid #32343d',borderRadius:12,overflow:'hidden',maxWidth:1150}}>
+      <iframe key={player+':'+playerVersion} src={player} title="TryBox player" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowFullScreen style={{width:'100%',height:'100%',border:0}}/>
+     </div>
+     <p style={{color:'#aab0bb',fontSize:13}}>Playback is embedded from TryBox, which controls the video source and login session. If it asks you to sign in again, return to TryBox sign-in.</p>
+     <button style={buttonStyle} onClick={()=>{setStage('login');setPlayer('');}}>TryBox sign-in</button>
     </section>}
-  </main>;
+   </section>}
+   {!selected&&<div style={{padding:'15px 5% 45px',display:'flex',gap:12,flexWrap:'wrap',alignItems:'center'}}>
+    <span style={{color:'#9da1ae',fontSize:12}}>Browsing information: TMDB · Playback: TryBox</span>
+    <button style={buttonStyle} onClick={()=>setStage('login')}>TryBox sign-in</button>
+   </div>}
+  </>}
+ </main>;
 }
