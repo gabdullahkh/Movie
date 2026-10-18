@@ -7,6 +7,8 @@ export default function TryBoxPage() {
   const [id, setId] = useState('1058424');
   const [season, setSeason] = useState('1');
   const [episode, setEpisode] = useState('1');
+  const [active, setActive] = useState(null);
+  const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('movie.trybox.settings') || '{}');
@@ -27,12 +29,13 @@ export default function TryBoxPage() {
     event.preventDefault();
     const next = buildUrl();
     if (!next) return;
+    setLoaded(false);
+    setActive(next);
     localStorage.setItem('movie.trybox.settings', JSON.stringify({ kind, id, season, episode }));
-    window.open(next, '_blank', 'noopener,noreferrer');
   }
   return <main style={{minHeight:'100vh',padding:'28px max(4%, 18px)',background:'#090a0e',color:'#f6f6f7'}}>
     <header style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:15,flexWrap:'wrap',marginBottom:28}}>
-      <div><h1 style={{margin:'0 0 8px',fontSize:29}}>TryBox <span style={{color:'#ef777f',fontSize:13}}>External player</span></h1><p style={{color:'#adb0bc',margin:0}}>Opens directly on TryBox so Google sign-in is not blocked by an iframe. Movie and URPlayer are unchanged.</p></div>
+      <div><h1 style={{margin:'0 0 8px',fontSize:29}}>TryBox <span style={{color:'#ef777f',fontSize:13}}>Experimental player</span></h1><p style={{color:'#adb0bc',margin:0}}>Separate from Movie and URPlayer.</p></div>
       <Link href="/" style={{color:'white',textDecoration:'none',background:'#2b2d34',borderRadius:7,padding:'12px 16px'}}>← Back to Movie</Link>
     </header>
     <form onSubmit={start} style={{display:'flex',flexWrap:'wrap',gap:12,alignItems:'end',padding:18,background:'#17191f',border:'1px solid #343640',borderRadius:12}}>
@@ -42,12 +45,17 @@ export default function TryBoxPage() {
         <label style={{display:'grid',gap:8,flex:'1 1 100px'}}>Season<input style={inputStyle} required min="1" type="number" value={season} onChange={e=>setSeason(e.target.value)}/></label>
         <label style={{display:'grid',gap:8,flex:'1 1 100px'}}>Episode<input style={inputStyle} required min="1" type="number" value={episode} onChange={e=>setEpisode(e.target.value)}/></label>
       </>}
-      <button type="submit" style={{background:'#e50914',border:0,color:'#fff',fontWeight:700,borderRadius:7,padding:'13px 24px'}}>Open on TryBox ↗</button>
+      <button type="submit" style={{background:'#e50914',border:0,color:'#fff',fontWeight:700,borderRadius:7,padding:'13px 24px'}}>Open player</button>
     </form>
-    <section style={{maxWidth:900,marginTop:24,color:'#adb0bc',lineHeight:1.7}}>
-      <p>Sign in with Google directly on TryBox. Your login session is managed by TryBox in your browser, not by Movie.</p>
-      <p>Movie remembers your selected content type, TMDB ID, season, and episode on this device. TryBox decides how long its login stays active.</p>
-      <a href="https://trybox.app/" target="_blank" rel="noopener noreferrer" style={{color:'#fff',textDecoration:'underline'}}>Open TryBox homepage ↗</a>
-    </section>
+    {active && <section style={{marginTop:24,maxWidth:1150}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap',marginBottom:12}}>
+        <strong>TryBox player</strong>
+        <a href={active} target="_blank" rel="noreferrer" style={{color:'white',textDecoration:'none',background:'#2e313b',padding:'10px 15px',borderRadius:7}}>Open directly ↗</a>
+      </div>
+      <div style={{width:'100%',aspectRatio:'16 / 9',background:'#000',borderRadius:10,overflow:'hidden',border:'1px solid #383b44'}}>
+        <iframe key={active} src={active} title="TryBox player" onLoad={()=>setLoaded(true)} allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" style={{width:'100%',height:'100%',border:0}} />
+      </div>
+      <p style={{color:'#aeb0b9',fontSize:13,lineHeight:1.6}}>TryBox may restrict embedded Google sign-in and third-party cookies. Movie cannot retain TryBox login sessions. {loaded ? 'Page load event received; playback is not independently verified.' : ''}</p>
+    </section>}
   </main>;
 }
