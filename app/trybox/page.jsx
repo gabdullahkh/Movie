@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Search, Play, ArrowLeft, Bookmark, Check, RotateCcw } from 'lucide-react';
 
@@ -42,6 +42,24 @@ export default function TryBoxPage(){
  const [episode,setEpisode]=useState(1);
  const [player,setPlayer]=useState('');
  const [playerVersion,setPlayerVersion]=useState(0);
+ const playerContainerRef=useRef(null);
+ const [isFullscreen,setIsFullscreen]=useState(false);
+ useEffect(()=>{
+  const sync=()=>setIsFullscreen(document.fullscreenElement===playerContainerRef.current);
+  document.addEventListener('fullscreenchange',sync);
+  return()=>document.removeEventListener('fullscreenchange',sync);
+ },[]);
+ async function toggleFullscreen(){
+  try{
+   if(document.fullscreenElement===playerContainerRef.current){
+    await document.exitFullscreen();
+   }else if(playerContainerRef.current){
+    await playerContainerRef.current.requestFullscreen();
+   }
+  }catch(err){
+   console.error('Fullscreen unavailable',err);
+  }
+ }
  const [favourites,setFavourites]=useState([]);
  const [history,setHistory]=useState([]);
  const [showLogin,setShowLogin]=useState(false);
@@ -174,9 +192,10 @@ export default function TryBoxPage(){
     {player&&<section style={{padding:'20px 5% 80px'}}>
      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:14,marginBottom:13}}>
       <h2 style={{margin:0}}>TryBox playback {kindOf(selected)==='tv'?' · S'+season+' E'+episode:''}</h2>
-      <button style={buttonStyle} onClick={()=>setPlayerVersion(v=>v+1)}><RotateCcw size={15}/> Reload player</button>
+      <div style={{display:'flex',gap:9,flexWrap:'wrap'}}><button style={buttonStyle} onClick={()=>setPlayerVersion(v=>v+1)}><RotateCcw size={15}/> Reload player</button><button style={redStyle} onClick={toggleFullscreen}>{isFullscreen?'Exit fullscreen':'Fullscreen ⛶'}</button></div>
      </div>
-     <div style={{aspectRatio:'16/9',background:'#000',border:'1px solid #32343d',borderRadius:12,overflow:'hidden',maxWidth:1150}}>
+     <div ref={playerContainerRef} style={{aspectRatio:isFullscreen?'auto':'16/9',width:isFullscreen?'100vw':'100%',height:isFullscreen?'100vh':'auto',background:'#000',border:isFullscreen?'none':'1px solid #32343d',borderRadius:isFullscreen?0:12,overflow:'hidden',maxWidth:isFullscreen?'none':1150,position:'relative'}}>
+      {isFullscreen&&<button type="button" onClick={toggleFullscreen} aria-label="Exit fullscreen" style={{position:'absolute',top:12,right:12,zIndex:5,padding:'9px 14px',background:'rgba(0,0,0,.72)',color:'#fff',border:'1px solid #777',borderRadius:7}}>Exit fullscreen</button>}
       <iframe key={player+':'+playerVersion} src={player} title="TryBox player" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowFullScreen style={{width:'100%',height:'100%',border:0}}/>
      </div>
      <p style={{color:'#aab0bb',fontSize:13}}>Playback is embedded from TryBox, which controls the video source and login session. If it asks you to sign in again, return to TryBox sign-in.</p>
