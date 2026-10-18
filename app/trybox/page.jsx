@@ -51,6 +51,7 @@ export default function TryBoxPage(){
    const data=saved?JSON.parse(saved):{};
    setFavourites(Array.isArray(data.favourites)?data.favourites:[]);
    setHistory(Array.isArray(data.history)?data.history:[]);
+   if (data.rememberBrowsing === true) setStage('browse');
   }catch{}
  },[]);
  useEffect(()=>{
@@ -86,7 +87,7 @@ export default function TryBoxPage(){
  },[selected,season]);
  function save(f,h){
   setFavourites(f);setHistory(h);
-  localStorage.setItem('movie.trybox.catalogue',JSON.stringify({favourites:f,history:h}));
+  localStorage.setItem('movie.trybox.catalogue',JSON.stringify({favourites:f,history:h,rememberBrowsing:true}));
  }
  function toggleFavourite(item){
   const exists=favourites.some(x=>idOf(x)===idOf(item));
@@ -109,7 +110,10 @@ export default function TryBoxPage(){
    <span className="tile-overlay"><strong>{item.title||item.name}</strong><span>{kindOf(item)==='tv'?'TV show':'Movie'} · {item.vote_average?Number(item.vote_average).toFixed(1):'—'} ★</span></span>
   </button>;
  }
- function goBrowse(){setStage('browse');setSelected(null);setTab('home');setPlayer('');}
+ function goBrowse(){
+  setStage('browse');setSelected(null);setTab('home');setPlayer('');
+  localStorage.setItem('movie.trybox.catalogue', JSON.stringify({favourites,history,rememberBrowsing:true}));
+ }
  const featured=rows.trending?.find(x=>x.backdrop_path);
  const shown=query.trim()?found:tab==='movies'?rows.movies:tab==='tv'?rows.shows:tab==='list'?favourites:tab==='history'?history:null;
  return <main style={{background:'#08090d',minHeight:'100vh',color:'white'}}>
@@ -125,7 +129,7 @@ export default function TryBoxPage(){
   </header>
   {stage==='login'?<section style={{maxWidth:880,margin:'38px auto',padding:'0 22px'}}>
    <h1 style={{fontSize:35,marginBottom:10}}>Sign in to TryBox</h1>
-   <p style={{color:'#b8bbc5',lineHeight:1.6}}>Use your working email account inside TryBox below. Your login session belongs to TryBox; Movie does not store your password.</p>
+   <p style={{color:'#b8bbc5',lineHeight:1.6}}>Use your working email account inside TryBox below. Your login session belongs to TryBox; Movie does not store your password. Returning visits can reopen this catalogue, but only TryBox can confirm that your email session is still active.</p>
    <div style={{border:'1px solid #393c46',borderRadius:12,overflow:'hidden',marginTop:20,background:'#000'}}>
     <iframe src="https://trybox.app/" title="TryBox email login" allow="autoplay; fullscreen; picture-in-picture" style={{display:'block',width:'100%',height:530,border:0}} onLoad={()=>setLoginAttempted(true)}/>
    </div>
