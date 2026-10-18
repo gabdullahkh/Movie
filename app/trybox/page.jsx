@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 export default function TryBoxPage() {
@@ -9,6 +9,32 @@ export default function TryBoxPage() {
   const [episode, setEpisode] = useState('1');
   const [active, setActive] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  const [frameVersion, setFrameVersion] = useState(0);
+  const [loginMessage, setLoginMessage] = useState('');
+  const loginPopup = useRef(null);
+  const loginStarted = useRef(false);
+  function reloadPlayer() {
+    setLoaded(false);
+    setFrameVersion(v => v + 1);
+  }
+  function openLogin() {
+    const popup = window.open('https://trybox.app/', 'trybox-signin', 'popup=yes,width=980,height=740,resizable=yes,scrollbars=yes');
+    if (!popup) { setLoginMessage('Popup blocked. Allow popups for this site and try again.'); return; }
+    loginPopup.current = popup;
+    loginStarted.current = true;
+    setLoginMessage('Sign in to TryBox in the popup, then return here. The player will reload; account access inside the iframe is not guaranteed.');
+    popup.focus();
+  }
+  useEffect(() => {
+    const backFromLogin = () => {
+      if (!loginStarted.current) return;
+      loginStarted.current = false;
+      reloadPlayer();
+      setLoginMessage('Player reloaded. If you are still signed out, TryBox may block third-party session cookies.');
+    };
+    window.addEventListener('focus', backFromLogin);
+    return () => window.removeEventListener('focus', backFromLogin);
+  }, []);
   useEffect(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('movie.trybox.settings') || '{}');
@@ -31,6 +57,7 @@ export default function TryBoxPage() {
     if (!next) return;
     setLoaded(false);
     setActive(next);
+    setFrameVersion(v => v + 1);
     localStorage.setItem('movie.trybox.settings', JSON.stringify({ kind, id, season, episode }));
   }
   return <main style={{minHeight:'100vh',padding:'28px max(4%, 18px)',background:'#090a0e',color:'#f6f6f7'}}>
@@ -49,13 +76,14 @@ export default function TryBoxPage() {
     </form>
     {active && <section style={{marginTop:24,maxWidth:1150}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap',marginBottom:12}}>
-        <strong>TryBox player</strong>
+        <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}><strong>TryBox player</strong><button type="button" onClick={openLogin} style={{color:'white',background:'#b91c27',border:0,padding:'10px 15px',borderRadius:7,cursor:'pointer'}}>Sign in with Google (popup)</button><button type="button" onClick={reloadPlayer} style={{color:'white',background:'#32343e',border:0,padding:'10px 15px',borderRadius:7,cursor:'pointer'}}>Reload player</button></div>
         <a href={active} target="_blank" rel="noreferrer" style={{color:'white',textDecoration:'none',background:'#2e313b',padding:'10px 15px',borderRadius:7}}>Open directly ↗</a>
       </div>
+      {loginMessage && <p role="status" style={{color:'#c9ced7',fontSize:13}}>{loginMessage}</p>}
       <div style={{width:'100%',aspectRatio:'16 / 9',background:'#000',borderRadius:10,overflow:'hidden',border:'1px solid #383b44'}}>
-        <iframe key={active} src={active} title="TryBox player" onLoad={()=>setLoaded(true)} allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" style={{width:'100%',height:'100%',border:0}} />
+        <iframe key={active + ':' + frameVersion} src={active} title="TryBox player" onLoad={()=>setLoaded(true)} allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" style={{width:'100%',height:'100%',border:0}} />
       </div>
-      <p style={{color:'#aeb0b9',fontSize:13,lineHeight:1.6}}>TryBox may restrict embedded Google sign-in and third-party cookies. Movie cannot retain TryBox login sessions. {loaded ? 'Page load event received; playback is not independently verified.' : ''}</p>
+      <p style={{color:'#aeb0b9',fontSize:13,lineHeight:1.6}}>The popup opens TryBox's own website; Google sign-in is handled by TryBox. Browser privacy rules or TryBox's cookie settings may prevent that login from carrying into the embedded player. {loaded ? 'Page load event received; playback is not independently verified.' : ''}</p>
     </section>}
   </main>;
 }
