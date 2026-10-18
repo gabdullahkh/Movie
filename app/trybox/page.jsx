@@ -89,7 +89,7 @@ export default function TryBoxPage() {
       </>}
       <button type="submit" disabled={!testingSession} style={{background:'#e50914',border:0,color:'#fff',fontWeight:700,borderRadius:7,padding:'13px 24px'}}>Open player</button>
       </form>
-    </section>
+    </section>}
     {active && <section style={{marginTop:24,maxWidth:1150}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap',marginBottom:12}}>
         <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}><strong>TryBox embedded session / player</strong><button type="button" onClick={reloadPlayer} style={{color:'white',background:'#32343e',border:0,padding:'10px 15px',borderRadius:7,cursor:'pointer'}}>Reload player</button></div>
