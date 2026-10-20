@@ -32,13 +32,13 @@ export default function Page(){
  }
  async function openChapter(item){
   setChapter({path:item.url,label:item.label});setTab('reader');setError('');window.scrollTo(0,0);
-  if(selected)updateSaved(s=>({...s,progress:{...s.progress,[selected.id]:{path:item.url,label:item.label,title:selected.title,image:selected.image,date:Date.now()}}}));
+  if(selected)updateSaved(s=>({...s,progress:{...s.progress,[selected.id]:{path:item.url,label:item.label,title:selected.title,image:selected.image,date:Date.now(),reads:(s.progress[selected.id]?.reads||0)+1}}}));
   try{const result=await fetchData('chapter',item.url);setChapter(old=>old?.path===item.url?{...old,...result}:old);}catch(e){setError(e.message);}
  }
  const chapters=useMemo(()=>[...(detail?.chapters||[])].filter(c=>c.label.toLowerCase().includes(chapterSearch.toLowerCase())).sort((a,b)=>{
   const x=getNum(a),y=getNum(b);if(x!==null&&y!==null)return chapterSort==='newest'?y-x:x-y;return x!==null?-1:y!==null?1:0;
  }),[detail?.chapters,chapterSort,chapterSearch]);
- const progressEntries=useMemo(()=>Object.entries(saved.progress||{}).map(([id,p])=>({id,...p,reads:p.reads||1})).sort((a,b)=>b.date-a.date),[saved.progress]);
+ const progressEntries=useMemo(()=>Object.entries(saved.progress||{}).map(([id,p])=>({id,...p,reads:p.reads||1})).sort((a,b)=>b.reads-a.reads||b.date-a.date),[saved.progress]);
  const browse=useMemo(()=>items.filter(x=>x?.title?.toLowerCase().includes(query.toLowerCase())),[items,query]);
  const continuations=useMemo(()=>progressEntries.filter(x=>x.title?.toLowerCase().includes(query.toLowerCase())),[progressEntries,query]);
  const back=()=>switchTab('latest');
@@ -62,7 +62,7 @@ export default function Page(){
    {!detailLoading&&!chapters.length&&<div className="notice">No chapter links available. <a href={HOST+selected.id} target="_blank" rel="noreferrer">Open series on AsuraScan ↗</a></div>}
    </div>:
   <main className="wrap">
-   <div className="sectionhead"><div><h1>{tab==='continue'?'Continue Reading':query?'Search Results':'Trending & Latest Updates'}</h1><p className="subtitle">{tab==='continue'?'Your recently read manhwa. Your latest chapter stays saved on this device.':'Recently updated series from the AsuraScan catalog.'}</p></div><span className="count">{tab==='continue'?continuations.length:browse.length} series</span></div>
+   <div className="sectionhead"><div><h1>{tab==='continue'?'Continue Reading':query?'Search Results':'Trending & Latest Updates'}</h1><p className="subtitle">{tab==='continue'?'Your most-read series first, with your latest chapter saved on this device.':'Recently updated series from the AsuraScan catalog.'}</p></div><span className="count">{tab==='continue'?continuations.length:browse.length} series</span></div>
    {tab==='continue'?<>{!ready?<p className="empty">Loading history...</p>:continuations.length?<div className="resumeGrid">{continuations.map(entry=><button key={entry.id} className="resume" onClick={()=>openComic(entry)}>{entry.image?<img src={entry.image} alt="" referrerPolicy="no-referrer"/>:<BookOpen size={35}/>}<span className="detailText"><strong>{entry.title}</strong><small>Continue at {entry.label||'last chapter'}</small></span><ArrowRight size={19}/></button>)}</div>:<div className="notice">Your reading history is empty on this device. Open a series in Latest Updates and read a chapter to see it here. Existing AsuraScan account bookmarks are not synchronized.</div>}</>:
     <>{error&&<div className="notice">{error}</div>}<div className="grid">{browse.map(card)}</div>{busy&&<p className="empty">Loading series…</p>}{!busy&&!browse.length&&<p className="empty">No series found in loaded pages.</p>}{more&&<div style={{display:'flex',justifyContent:'center',marginTop:35}}><button className="button" disabled={busy} onClick={()=>loadPages(page+1,Math.min(page+3,30))}>Load more series <ChevronDown size={17}/></button></div>}</>}
   </main>}
