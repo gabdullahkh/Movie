@@ -3,7 +3,7 @@ export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const ORIGIN='https://asurascans.com';
 const domain=/^(?:cdn\.)?asurascans\.com$/i;
-const decode=s=>String(s||'').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;|&apos;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Number(n))).replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim();
+const decode=s=>String(s||'').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;|&apos;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Number(n))).replace(/<\/(?:div|span|p|h[1-6]|li|time|small|strong|section|a)>/gi,' ').replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim();
 const json=(data,status=200)=>NextResponse.json(data,{status,headers:{'Cache-Control':'public,s-maxage=120,stale-while-revalidate=300'}});
 const attr=(html,name)=>{const m=html.match(new RegExp('\\b'+name+'\\s*=\\s*(?:"([^"]*)"|\x27([^\x27]*)\x27)','i'));return m?.[1]||m?.[2]||''};
 function pathOf(value){
