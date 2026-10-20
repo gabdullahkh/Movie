@@ -7,7 +7,7 @@ const decode=s=>String(s||'').replace(/&amp;/g,'&').replace(/&quot;/g,'"').repla
 const json=(data,status=200)=>NextResponse.json(data,{status,headers:{'Cache-Control':'public,s-maxage=120,stale-while-revalidate=300'}});
 const attr=(html,name)=>{const m=html.match(new RegExp('\\b'+name+'\\s*=\\s*(?:"([^"]*)"|\x27([^\x27]*)\x27)','i'));return m?.[1]||m?.[2]||''};
 function pathOf(value){
- try{const url=new URL(value,ORIGIN);if(url.origin!==ORIGIN||!/^\/comics(?:\/[a-z0-9-]+)?(?:\/chapter\/[a-z0-9.-]+)?$/i.test(url.pathname))return null;return url.pathname;}catch{return null;}
+ try{const url=new URL(value,ORIGIN);if(url.origin!==ORIGIN||!/^\/(?:comics(?:\/[a-z0-9-]+)?(?:\/chapter\/[a-z0-9.-]+)?|browse(?:\/comics)?)$/i.test(url.pathname))return null;return url.pathname;}catch{return null;}
 }
 function imageOf(value){
  try{const url=new URL(value,ORIGIN);if(url.protocol!=='https:'||!domain.test(url.hostname))return null;return url.href;}catch{return null;}
@@ -68,16 +68,18 @@ function chapter(html,path){
 }
 export async function GET(request){
  const q=new URL(request.url).searchParams;
- const mode=q.get('mode')||'feed',path=pathOf(q.get('path')||'/comics');
+ const mode=q.get('mode')||'feed',path=pathOf(q.get('path')||'/browse/comics');
+ const page=Number(q.get('page')||1);
+ if(!Number.isInteger(page)||page<1||page>30)return json({error:'Invalid page'},400);
  if(!path||!['feed','comic','chapter'].includes(mode))return json({error:'Invalid request'},400);
- if(mode==='feed'&&path!=='/comics'||mode==='comic'&&!/^\/comics\/[^/]+$/.test(path)||mode==='chapter'&&!/^\/comics\/[^/]+\/chapter\/[^/]+$/.test(path))return json({error:'Invalid content path'},400);
+ if(mode==='feed'&&!['/comics','/browse','/browse/comics'].includes(path)||mode==='comic'&&!/^\/comics\/[^/]+$/.test(path)||mode==='chapter'&&!/^\/comics\/[^/]+\/chapter\/[^/]+$/.test(path))return json({error:'Invalid content path'},400);
  const controller=new AbortController();const t=setTimeout(()=>controller.abort(),13000);
  try{
-  const r=await fetch(ORIGIN+path,{headers:{'Accept':'text/html','User-Agent':'Mozilla/5.0 (compatible; AsuraReader/1.0)'},redirect:'error',signal:controller.signal,cache:'no-store'});
+  const r=await fetch(ORIGIN+path+(mode==='feed'?'?page='+page:''),{headers:{'Accept':'text/html','User-Agent':'Mozilla/5.0 (compatible; AsuraReader/1.0)'},redirect:'error',signal:controller.signal,cache:'no-store'});
   if(!r.ok)throw Error('Source returned HTTP '+r.status);
   if(!(r.headers.get('content-type')||'').includes('text/html'))throw Error('Unexpected response');
   const html=await r.text();
   if(html.length>6000000)throw Error('Source response too large');
-  return json(mode==='feed'?{items:feed(html)}:mode==='comic'?comic(html,path):chapter(html,path));
+  return json(mode==='feed'?{items:feed(html),page,hasMore:feed(html).length>=15}:mode==='comic'?comic(html,path):chapter(html,path));
  }catch(err){return json({error:'Source unavailable: '+err.message},502);}finally{clearTimeout(t);}
 }
