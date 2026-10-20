@@ -31,7 +31,7 @@ function feed(html){
   if(!a.href||!/^\/comics\/[^/]+$/.test(a.href)||found.has(a.href))continue;
   const nearby=images(a.inside);
   const text=decode(a.inside);
-  const title=(nearby.find(x=>x.alt)?.alt||text.replace(/^\d+(?:\.\d+)?\s*/,'').replace(/Chapter\s+\d+[\s\S]*$/i,'')).trim().slice(0,140);
+  const title=(nearby.find(x=>x.alt)?.alt||text.replace(/^\d+(?:\.\d+)?\s*/,'').replace(/\d+\s*(?:Chs\.|Chapters?)\s*[\s\S]*$/i,'').replace(/Chapter\s+\d+[\s\S]*$/i,'')).trim().slice(0,140);
   if(!title||/^(all comics|home|read the novel)$/i.test(title))continue;
   const image=nearby[0]?.src||imgs.find(x=>x.alt===title)?.src||null;
   found.set(a.href,{id:a.href,title,image,chapter:(text.match(/Chapter\s+\d+(?:\.\d+)?/i)||[])[0]||'',rating:(text.match(/\b\d\.\d\b/)||[])[0]||''});
@@ -68,7 +68,7 @@ function chapter(html,path){
 }
 export async function GET(request){
  const q=new URL(request.url).searchParams;
- const mode=q.get('mode')||'feed',path=pathOf(q.get('path')||'/browse/comics');
+ const mode=q.get('mode')||'feed',path=pathOf(q.get('path')||'/browse');
  const page=Number(q.get('page')||1);
  if(!Number.isInteger(page)||page<1||page>30)return json({error:'Invalid page'},400);
  if(!path||!['feed','comic','chapter'].includes(mode))return json({error:'Invalid request'},400);
@@ -80,6 +80,6 @@ export async function GET(request){
   if(!(r.headers.get('content-type')||'').includes('text/html'))throw Error('Unexpected response');
   const html=await r.text();
   if(html.length>6000000)throw Error('Source response too large');
-  return json(mode==='feed'?{items:feed(html),page,hasMore:feed(html).length>=15}:mode==='comic'?comic(html,path):chapter(html,path));
+  return json(mode==='feed'?{items:feed(html),page,hasMore:feed(html).length>=20}:mode==='comic'?comic(html,path):chapter(html,path));
  }catch(err){return json({error:'Source unavailable: '+err.message},502);}finally{clearTimeout(t);}
 }
