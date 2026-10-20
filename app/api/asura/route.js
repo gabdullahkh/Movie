@@ -46,12 +46,12 @@ function comic(html,path){
  for(const a of allAnchors(html)){
   if(!a.href?.startsWith(path+'/chapter/')||chapters.has(a.href))continue;
   const raw=decode(a.inside);
-  const fromText=raw.match(/(?:^|\\b)chapter\\s*(\\d+(?:\\.\\d+)?)(?!\\d)/i);
+  const fromText=raw.match(/(?:^|\b)chapter\s*(\d+(?:\.\d+)?)(?!\d)/i);
   const slug=a.href.split('/').at(-1)||'';
-  const fromUrl=slug.match(/(?:chapter[-_]?|^)(\\d+(?:\\.\\d+)?)(?:[-_]|$)/i);
+  const fromUrl=slug.match(/(?:chapter[-_]?|^)(\d+(?:\.\d+)?)(?:[-_]|$)/i);
   const number=fromText?Number(fromText[1]):fromUrl?Number(fromUrl[1]):null;
-  const suffix=number===null?'':raw.replace(/^.*?chapter\\s*\\d+(?:\\.\\d+)?/i,'').replace(/\\b(?:just now|yesterday|today|last week|\\d+\\s*(?:minutes?|hours?|days?|weeks?|months?|years?)\\s*ago)\\b[\\s\\S]*$/i,'').trim();
-  const label=number!==null?'Chapter '+number+(suffix&&suffix.length<65?' — '+suffix:''):raw.replace(/\\b(?:just now|last week|\\d+\\s*(?:days?|weeks?|months?|years?)\\s*ago)\\b[\\s\\S]*$/i,'').trim()||'Chapter';
+  const suffix=number===null?'':raw.replace(/^.*?chapter\s*\d+(?:\.\d+)?/i,'').replace(/\b(?:just now|yesterday|today|last week|\d+\s*(?:minutes?|hours?|days?|weeks?|months?|years?)\s*ago)\b[\s\S]*$/i,'').trim();
+  const label=number!==null?'Chapter '+number+(suffix&&suffix.length<65?' — '+suffix:''):raw.replace(/\b(?:just now|last week|\d+\s*(?:days?|weeks?|months?|years?)\s*ago)\b[\s\S]*$/i,'').trim()||'Chapter';
   chapters.set(a.href,{url:a.href,label:label.slice(0,140),number});
  }
  return {path,title,image:cover?.src||null,description,chapters:[...chapters.values()]};
